@@ -1,0 +1,98 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String?       // Null for OAuth-only users
+  googleId     String?       @unique
+  avatar       String?       // Google profile picture URL
+  name         String
+  role         String        @default("Developer") // Developer, Designer, Presenter, Leader, Mentor
+  xp           Int           @default(0)
+  badges       String        @default("[]") // Array of earned badge names (JSON string)
+  roleBadge    String        @default("Contributor")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  teams        Team[]        @relation("TeamMembers")
+  ledTeams     Team[]        @relation("TeamLeader")
+  tasks        Task[]
+  messages     Message[]
+  snippets     CodeSnippet[]
+}
+
+model Team {
+  id             String        @id @default(uuid())
+  name           String
+  joinCode       String        @unique
+  leaderId       String
+  leader         User          @relation("TeamLeader", fields: [leaderId], references: [id])
+  members        User[]        @relation("TeamMembers")
+  tasks          Task[]
+  messages       Message[]
+  snippets       CodeSnippet[]
+  documents      Document[]
+  whiteboardData  String        @default("[]") // Array of drawing actions/paths (JSON string)
+  copilotState    String        @default("{}") // Stores the latest AI Copilot recommendations and score (JSON string)
+  milestones      String        @default("[]") // Project milestones [{ id, title, done }] (JSON string)
+  githubRepo      String        @default("") // GitHub repository integration
+  unlockedAvatars String        @default("[]") // Unlocked rewards shop items (JSON string)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  title       String
+  description String    @default("")
+  column      String    @default("todo") // todo, inprogress, done
+  assigneeId  String?
+  assignee    User?     @relation(fields: [assigneeId], references: [id])
+  teamId      String
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  deadline    DateTime?
+  timeSpent   Int       @default(0) // time spent in seconds
+  checklist   String    @default("[]") // Checklist items [{ id, text, done }] (JSON string)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  text       String
+  system     Boolean  @default(false)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  teamId     String
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  attachment String?  // { filename, url, size, mimetype } (JSON string)
+  timestamp  DateTime @default(now())
+}
+
+model CodeSnippet {
+  id        String   @id @default(uuid())
+  title     String
+  code      String
+  language  String   @default("javascript")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  title     String
+  content   String   @default("")
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
