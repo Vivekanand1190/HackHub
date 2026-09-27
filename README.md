@@ -49,7 +49,7 @@ HackHub is a premium, all-in-one full-stack collaborative workspace application 
 - **Collaborative Editor**: `@monaco-editor/react`
 - **Icon Assets**: Lucide React
 
----
+----
 
 ## Step-by-Step Setup Instructions
 
