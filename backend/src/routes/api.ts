@@ -10,6 +10,12 @@ import prisma from '../prisma';
 import { config } from '../config';
 import { googleOAuthEnabled } from '../passport';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth';
+import {
+  requireTeamMember,
+  requireTeamMemberFromBody,
+  requireTaskTeamMember,
+  requireDocumentTeamMember,
+} from '../middleware/teamAccess';
 import { CopilotService } from '../services/copilot.service';
 
 const router = Router();
@@ -301,7 +307,7 @@ router.post('/teams/join', authMiddleware, async (req: AuthenticatedRequest, res
 });
 
 // 3. Get Workspace State (Messages, Tasks, Snippets, Documents, Members)
-router.get('/teams/:teamId/workspace', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.get('/teams/:teamId/workspace', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { teamId } = req.params;
 
   try {
@@ -370,7 +376,7 @@ router.get('/teams/:teamId/workspace', authMiddleware, async (req: Authenticated
    ========================================================================== */
 
 // 1. Create a Task
-router.post('/tasks', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.post('/tasks', authMiddleware, requireTeamMemberFromBody('teamId'), async (req: AuthenticatedRequest, res) => {
   const { title, description, column, teamId, assigneeId, deadline } = req.body;
   if (!title || !teamId) return res.status(400).json({ error: 'Title and teamId are required' });
 
@@ -394,7 +400,7 @@ router.post('/tasks', authMiddleware, async (req: AuthenticatedRequest, res) => 
 });
 
 // 2. Update a Task (Status column, details, assignee)
-router.put('/tasks/:taskId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.put('/tasks/:taskId', authMiddleware, requireTaskTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { taskId } = req.params;
   const { title, description, column, assigneeId, deadline, timeSpent, checklist } = req.body;
 
@@ -420,7 +426,7 @@ router.put('/tasks/:taskId', authMiddleware, async (req: AuthenticatedRequest, r
 });
 
 // 3. Delete a Task
-router.delete('/tasks/:taskId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.delete('/tasks/:taskId', authMiddleware, requireTaskTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { taskId } = req.params;
 
   try {
@@ -437,7 +443,7 @@ router.delete('/tasks/:taskId', authMiddleware, async (req: AuthenticatedRequest
    ========================================================================== */
 
 // Create Snippet
-router.post('/snippets', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.post('/snippets', authMiddleware, requireTeamMemberFromBody('teamId'), async (req: AuthenticatedRequest, res) => {
   const { title, code, language, teamId } = req.body;
   if (!title || !code || !teamId || !req.user) {
     return res.status(400).json({ error: 'Missing title, code, or teamId' });
@@ -460,7 +466,7 @@ router.post('/snippets', authMiddleware, async (req: AuthenticatedRequest, res) 
 });
 
 // Create/Update Document
-router.post('/documents', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.post('/documents', authMiddleware, requireDocumentTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { id, title, content, teamId } = req.body;
   if (!title || !teamId) return res.status(400).json({ error: 'Title and teamId are required' });
 
@@ -488,7 +494,7 @@ router.post('/documents', authMiddleware, async (req: AuthenticatedRequest, res)
    ========================================================================== */
 
 // Trigger live AI review
-router.post('/copilot/:teamId/scan', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.post('/copilot/:teamId/scan', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { teamId } = req.params;
 
   try {
@@ -542,7 +548,7 @@ router.post('/uploads', authMiddleware, upload.single('file'), (req: Authenticat
    ========================================================================== */
 
 // 1. Update Team details (Milestones, Github Repo)
-router.put('/teams/:teamId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.put('/teams/:teamId', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { teamId } = req.params;
   const { githubRepo, milestones, unlockedAvatars } = req.body;
 
@@ -686,7 +692,7 @@ router.post('/copilot/tools', authMiddleware, async (req: AuthenticatedRequest, 
 });
 
 // 4. Code Quality & Security Auditing Scan
-router.post('/copilot/audit/:teamId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.post('/copilot/audit/:teamId', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { teamId } = req.params;
 
   try {
@@ -805,10 +811,12 @@ router.post('/copilot/audit/:teamId', authMiddleware, async (req: AuthenticatedR
 });
 
 // 5. XP Level Rewards Avatar Store Purchases
-router.post('/teams/:teamId/shop', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.post('/teams/:teamId/shop', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { teamId } = req.params;
-  const { itemName, cost, userId } = req.body;
-  if (!itemName || cost === undefined || !userId) {
+  const { itemName, cost } = req.body;
+  // Always charge the authenticated user — never trust a client-supplied userId.
+  const userId = req.user!.id;
+  if (!itemName || cost === undefined) {
     return res.status(400).json({ error: 'Missing purchase options' });
   }
 

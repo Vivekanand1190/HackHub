@@ -92,7 +92,11 @@ The backend server will launch at `http://localhost:8888`.
    ```bash
    npm install
    ```
-3. Start the Next.js local development server:
+3. (Optional) Point the frontend at a non-default backend:
+   ```bash
+   cp .env.example .env.local   # then set NEXT_PUBLIC_API_URL
+   ```
+4. Start the Next.js local development server:
    ```bash
    npm run dev
    ```
@@ -101,4 +105,27 @@ The client application will launch at `http://localhost:3000`.
 ---
 
 ## Deployment
-For instructions on deploying the frontend and backend servers to production hosting platforms (such as Render, Railway, Fly.io, or Vercel).
+
+HackHub is a two-service app: a long-running Node/Socket.IO backend and a Next.js frontend. Deploy them separately.
+
+### Backend (Render / Railway / Fly.io)
+
+1. Deploy the `backend/` directory as a Node service. Build command: `npm install && npm run build`. Start command: `npm start`.
+2. Set the environment variables from `backend/.env.example`. At minimum:
+   - `JWT_SECRET` and `SESSION_SECRET` — generate strong values with `openssl rand -hex 32`. The server **refuses to start in production without `JWT_SECRET`**.
+   - `DATABASE_URL` — a SQLite path for a single-instance deploy (e.g. `file:./prod.db`). For a multi-instance deploy, switch the Prisma datasource to PostgreSQL.
+   - `FRONTEND_URL` and `CORS_ORIGINS` — your deployed frontend origin(s), comma-separated.
+   - `HUGGINGFACE_API_KEY` — optional; the AI Copilot falls back to offline analysis without it.
+3. Run migrations on release: `npx prisma migrate deploy`.
+
+### Frontend (Vercel)
+
+1. Import the `frontend/` directory as a Next.js project.
+2. Set `NEXT_PUBLIC_API_URL` to your deployed backend URL (e.g. `https://hackhub-api.onrender.com`).
+3. Deploy.
+
+> Uploaded files are stored on the backend's local disk (`backend/uploads`). Use a persistent volume, or swap in object storage (S3/Cloudinary), for production.
+
+### Docker (optional)
+
+`docker-compose.yml` brings the backend and frontend up together for local development.

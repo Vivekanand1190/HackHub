@@ -1,0 +1,42 @@
+# Optional local stack for running the whole app with one command:
+#   docker compose up
+#
+# The backend uses SQLite out of the box, so this is a convenience for
+# containerised development — not a production topology.
+services:
+  backend:
+    image: node:20
+    working_dir: /app
+    ports:
+      - "8888:8888"
+    environment:
+      NODE_ENV: development
+      PORT: "8888"
+      DATABASE_URL: "file:./dev.db"
+      FRONTEND_URL: "http://localhost:3000"
+      CORS_ORIGINS: "http://localhost:3000"
+      # Development-only secrets. Never use these in production.
+      JWT_SECRET: "dev-only-jwt-secret-change-me"
+      SESSION_SECRET: "dev-only-session-secret-change-me"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    command: sh -c "npm install && npx prisma migrate deploy && npm run dev"
+
+  frontend:
+    image: node:20
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:8888"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev"
+
+volumes:
+  backend_node_modules:
+  frontend_node_modules:
