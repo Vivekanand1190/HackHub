@@ -52,5 +52,4 @@ pnpm-debug.log*
 *.sw?
 
 deploy.txt
-docker-compose.yml
 run.txt
