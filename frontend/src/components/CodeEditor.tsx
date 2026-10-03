@@ -1,3 +1,4 @@
+import { API_BASE } from '../utils/api';
 import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { 
@@ -255,7 +256,7 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
     setAddingTaskMap(prev => ({ ...prev, [key]: true }));
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch('http://localhost:8888/api/tasks', {
+      const res = await fetch(`${API_BASE}/api/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -288,7 +289,7 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch('http://localhost:8888/api/snippets', {
+      const res = await fetch(`${API_BASE}/api/snippets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

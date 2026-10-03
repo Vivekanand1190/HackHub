@@ -1,3 +1,4 @@
+import { API_BASE } from '../utils/api';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   FileText, 
@@ -88,7 +89,7 @@ export default function CollaborativeScratchpad({ socket, teamId, initialDocumen
     setSaveStatus('saving');
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch('http://localhost:8888/api/documents', {
+      const res = await fetch(`${API_BASE}/api/documents`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +173,7 @@ export default function CollaborativeScratchpad({ socket, teamId, initialDocumen
     setSaving(true);
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch('http://localhost:8888/api/documents', {
+      const res = await fetch(`${API_BASE}/api/documents`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

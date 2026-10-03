@@ -1,3 +1,4 @@
+import { API_BASE } from '../utils/api';
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
@@ -93,7 +94,7 @@ export default function KanbanBoard({ socket, teamId, members, initialTasks }: K
     const refreshTasks = async () => {
       try {
         const token = localStorage.getItem('hackhub_token');
-        const res = await fetch(`http://localhost:8888/api/teams/${teamId}/workspace`, {
+        const res = await fetch(`${API_BASE}/api/teams/${teamId}/workspace`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -142,7 +143,7 @@ export default function KanbanBoard({ socket, teamId, members, initialTasks }: K
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/tasks/${taskId}`, {
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +199,7 @@ export default function KanbanBoard({ socket, teamId, members, initialTasks }: K
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/tasks/${taskId}`, {
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -253,7 +254,7 @@ export default function KanbanBoard({ socket, teamId, members, initialTasks }: K
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/tasks/${taskId}`, {
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -300,7 +301,7 @@ export default function KanbanBoard({ socket, teamId, members, initialTasks }: K
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/tasks/${taskId}`, {
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -332,7 +333,7 @@ export default function KanbanBoard({ socket, teamId, members, initialTasks }: K
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch('http://localhost:8888/api/tasks', {
+      const res = await fetch(`${API_BASE}/api/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -375,7 +376,7 @@ export default function KanbanBoard({ socket, teamId, members, initialTasks }: K
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/tasks/${taskId}`, {
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -1,3 +1,4 @@
+import { API_BASE } from '../utils/api';
 import React, { useState, useRef } from 'react';
 import { 
   FolderOpen, 
@@ -95,7 +96,7 @@ export default function FileVault({ socket, teamId, user, messages }: FileVaultP
     const token = localStorage.getItem('hackhub_token');
     const xhr = new XMLHttpRequest();
 
-    xhr.open('POST', 'http://localhost:8888/api/uploads', true);
+    xhr.open('POST', `${API_BASE}/api/uploads`, true);
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
     // Track upload progress in real-time
@@ -288,13 +289,13 @@ export default function FileVault({ socket, teamId, user, messages }: FileVaultP
                     <div className="relative rounded-lg overflow-hidden border border-slate-800/80 bg-slate-950 w-24 h-16 shrink-0 flex items-center justify-center shadow-inner">
                       {file.mimetype.startsWith('image/') ? (
                         <img 
-                          src={`http://localhost:8888${file.url}`} 
+                          src={`${API_BASE}${file.url}`} 
                           alt="preview" 
                           className="w-full h-full object-cover" 
                         />
                       ) : (
                         <video 
-                          src={`http://localhost:8888${file.url}`} 
+                          src={`${API_BASE}${file.url}`} 
                           className="w-full h-full object-cover" 
                         />
                       )}
@@ -302,7 +303,7 @@ export default function FileVault({ socket, teamId, user, messages }: FileVaultP
                   )}
 
                   <a
-                    href={`http://localhost:8888${file.url}`}
+                    href={`${API_BASE}${file.url}`}
                     download={file.originalName}
                     target="_blank"
                     rel="noreferrer"
