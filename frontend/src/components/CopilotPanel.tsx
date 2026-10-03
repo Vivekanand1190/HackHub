@@ -1,3 +1,4 @@
+import { API_BASE } from '../utils/api';
 import React, { useState } from 'react';
 import { 
   Cpu, 
@@ -95,7 +96,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
     setScanning(true);
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/copilot/${teamId}/scan`, {
+      const res = await fetch(`${API_BASE}/api/copilot/${teamId}/scan`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -118,7 +119,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
     setAddingSuggestionMap(prev => ({ ...prev, [index]: true }));
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch('http://localhost:8888/api/tasks', {
+      const res = await fetch(`${API_BASE}/api/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +152,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
     setPlaygroundOutput('');
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch('http://localhost:8888/api/copilot/tools', {
+      const res = await fetch(`${API_BASE}/api/copilot/tools`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -182,7 +183,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
     setAuditLoading(true);
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/copilot/audit/${teamId}`, {
+      const res = await fetch(`${API_BASE}/api/copilot/audit/${teamId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -455,7 +456,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
                   { id: 'explain-code', label: '3-Line Code Explainer', desc: 'Explains complex script steps simply' },
                   { id: 'commit-generator', label: 'Git Commit Generator', desc: 'Summarizes edits conventional commits' },
                   { id: 'pitch-simulator', label: 'Judge technical Q&A Critic', desc: 'Creates challenging questions about code' },
-                  { id: 'slide-outline', label: 'Pitch Deck Outliner', desc: 'Suggests visual layout for pitch decks' },
+                  { id: 'slide-outline', label: 'Pitch Deck Outlines', desc: 'Suggests visual layout for pitch decks' },
                   { id: 'tagline-improver', label: 'SaaS Tagline & Pitch Improver', desc: 'Creates hooks and selling slogans' }
                 ].map((tool) => (
                   <button
