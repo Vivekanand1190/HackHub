@@ -1,3 +1,4 @@
+import { API_BASE } from '../utils/api';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
@@ -89,7 +90,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
 
       try {
         const token = localStorage.getItem('hackhub_token');
-        const res = await fetch('http://localhost:8888/api/uploads', {
+        const res = await fetch(`${API_BASE}/api/uploads`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -217,7 +218,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                       {msg.attachment.mimetype.startsWith('image/') ? (
                         <div className="relative rounded-lg overflow-hidden border border-slate-800 bg-slate-950 aspect-video flex items-center justify-center">
                           <img 
-                            src={`http://localhost:8888${msg.attachment.url}`} 
+                            src={`${API_BASE}${msg.attachment.url}`} 
                             alt={msg.attachment.originalName} 
                             className="max-h-48 object-contain w-full"
                           />
@@ -225,7 +226,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                       ) : msg.attachment.mimetype.startsWith('video/') ? (
                         <div className="relative rounded-lg overflow-hidden border border-slate-800 bg-slate-950">
                           <video 
-                            src={`http://localhost:8888${msg.attachment.url}`} 
+                            src={`${API_BASE}${msg.attachment.url}`} 
                             controls 
                             className="max-h-48 w-full object-contain"
                           />
@@ -246,7 +247,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                         </div>
                         
                         <a 
-                          href={`http://localhost:8888${msg.attachment.url}`} 
+                          href={`${API_BASE}${msg.attachment.url}`} 
                           download={msg.attachment.originalName}
                           target="_blank"
                           rel="noreferrer"
