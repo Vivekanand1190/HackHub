@@ -1,6 +1,5 @@
 import dotenv from 'dotenv';
 import path from 'path';
-import crypto from 'crypto';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -9,10 +8,14 @@ const nodeEnv = process.env.NODE_ENV || 'development';
 /**
  * Resolve the JWT signing secret.
  *
- * A predictable, hardcoded secret lets anyone forge valid tokens, so:
- *  - in production we refuse to start without an explicit JWT_SECRET;
- *  - in development we fall back to a random per-process secret (tokens are
- *    simply invalidated on restart) rather than a value that ships in git.
+ * - If JWT_SECRET is set, use it.
+ * - In production, refuse to start without one (a predictable default would let
+ *   anyone forge tokens).
+ * - In development, fall back to a STABLE placeholder so tokens stay valid
+ *   across the frequent restarts of the dev server (ts-node-dev respawns on
+ *   every file change). A per-process random secret here silently invalidates
+ *   every token on each restart — which shows up as "Token is invalid or
+ *   expired" on the very next request.
  */
 function resolveJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -25,16 +28,16 @@ function resolveJwtSecret(): string {
   }
 
   console.warn(
-    '⚠️  JWT_SECRET is not set — using a random per-process secret. ' +
-      'Tokens will be invalidated on restart. Set JWT_SECRET in backend/.env for a stable dev session.'
+    '⚠️  JWT_SECRET is not set — using a stable development-only secret. ' +
+      'Set JWT_SECRET in backend/.env to silence this warning.'
   );
-  return crypto.randomBytes(32).toString('hex');
+  return 'hackhub-development-only-jwt-secret';
 }
 
 function resolveSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (secret && secret.trim().length > 0) return secret;
-  return crypto.randomBytes(32).toString('hex');
+  return 'hackhub-development-only-session-secret';
 }
 
 /**
