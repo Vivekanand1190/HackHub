@@ -109,3 +109,72 @@ browser (`localStorage.removeItem('hackhub_token')`) and sign in again. Changing
 In development you can also simply leave `JWT_SECRET` unset: the backend then
 uses one stable built-in dev secret for every start path, which keeps tokens
 valid across restarts.
+
+
+### Database errors: `P3005` and `P3018`
+
+Never run `npx prisma db push` against this project. `db push` syncs
+`schema.prisma` straight into the database and writes nothing to
+`_prisma_migrations`, so you end up with a database that contains the tables
+while Prisma has no record of how they got there. The next
+`prisma migrate deploy` then refuses to run:
+
+```
+Error: P3005
+The database schema is not empty.
+```
+
+If you baseline your way past that, the run gets as far as the first migration
+that tries to create something your database already has:
+
+```
+Error: P3018
+A migration failed to apply.
+Database error: table "Notification" already exists
+```
+
+Both mean the same thing — the database has drifted away from the migrations.
+Prisma's migrations are deliberately not idempotent: they assume they are
+applied in order, to a database in the state the previous migration left it in.
+A database built by `db push` therefore cannot be brought back into line by
+editing the migration files.
+
+For a local development database the fix is to rebuild it from the migrations:
+
+```bash
+cd backend
+npx prisma migrate reset
+```
+
+That drops `dev.db`, recreates `_prisma_migrations`, and replays every migration
+in order. It is destructive, and there is no seed script, so you will come back
+to an empty database and need to register again.
+
+To keep the data instead, clear the failed marker and tell Prisma which
+migrations your database already reflects:
+
+```bash
+npx prisma db pull --print   # keep --print: without it this overwrites schema.prisma
+npx prisma migrate resolve --rolled-back <failed-migration>
+npx prisma migrate resolve --applied <migration-already-in-place>
+npx prisma migrate deploy
+```
+
+Only baseline migrations whose effects `db pull --print` actually shows, and
+check each one individually — a migration that adds a column fails the same way
+if the column is already present.
+
+If the generated Prisma Client is stale, the symptom is type errors on models
+or fields that clearly exist in `schema.prisma`, such as
+`prisma.snippetRevision` or `message.pinned`. The client is generated into
+`node_modules/.prisma/client`, so a schema change does nothing to the types
+until you run:
+
+```bash
+cd backend
+npm run prisma:generate
+```
+
+CI never hits this because it runs `npx prisma generate` immediately before
+`npx tsc --noEmit`. Restart your editor's TypeScript server afterwards if the
+squiggles linger.
