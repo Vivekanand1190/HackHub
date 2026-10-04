@@ -20,6 +20,33 @@ import { CopilotService } from '../services/copilot.service';
 
 const router = Router();
 
+/** Safely parse a value that may be a JSON string, a plain string, or null. */
+function parseMaybeJson(value: unknown): any {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+/** True if the user is the team's leader or one of its members. */
+async function isTeamMember(userId: string, teamId: string): Promise<boolean> {
+  const team = await prisma.team.findFirst({
+    where: { id: teamId, OR: [{ leaderId: userId }, { members: { some: { id: userId } } }] },
+    select: { id: true },
+  });
+  return !!team;
+}
+
+/** null = event not found; true = may manage; false = forbidden. */
+async function canManageEvent(userId: string, role: string | undefined, eventId: string): Promise<boolean | null> {
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { organizerId: true } });
+  if (!event) return null;
+  return event.organizerId === userId || role === 'Organizer' || role === 'Leader';
+}
+
 router.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -61,7 +88,11 @@ router.post('/auth/register', async (req, res) => {
         email,
         passwordHash,
         name,
-        role: role || 'Developer',
+        role:
+          typeof role === 'string' && role.trim() &&
+          !['Leader', 'Organizer', 'Admin', 'Owner'].includes(role.trim())
+            ? role.trim()
+            : 'Developer',
         xp: 10, // Starting XP
         badges: JSON.stringify(['Novice Hacker'])
       }
@@ -81,7 +112,7 @@ router.post('/auth/register', async (req, res) => {
         name: user.name,
         role: user.role,
         xp: user.xp,
-        badges: JSON.parse(user.badges as string)
+        badges: parseMaybeJson(user.badges)
       }
     });
   } catch (err) {
@@ -126,7 +157,7 @@ router.post('/auth/login', async (req, res) => {
         name: user.name,
         role: user.role,
         xp: user.xp,
-        badges: JSON.parse(user.badges as string)
+        badges: parseMaybeJson(user.badges)
       }
     });
   } catch (err) {
@@ -150,7 +181,7 @@ router.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) =>
       role: user.role,
       xp: user.xp,
       avatar: user.avatar,
-      badges: JSON.parse(user.badges as string)
+      badges: parseMaybeJson(user.badges)
     });
   } catch (err) {
     res.status(500).json({ error: 'Server error fetching user session' });
@@ -195,7 +226,7 @@ router.get('/auth/google/callback', (req, res, next) => {
       role: user.role,
       xp: user.xp,
       avatar: user.avatar,
-      badges: JSON.parse(user.badges as string)
+      badges: parseMaybeJson(user.badges)
     }));
 
     res.redirect(`${config.frontendUrl}/auth/callback?token=${token}&user=${userPayload}`);
@@ -348,7 +379,7 @@ router.get('/teams/:teamId/workspace', authMiddleware, requireTeamMember(), asyn
       system: m.system,
       userId: m.userId,
       user: m.user ? { name: m.user.name, role: m.user.role } : null,
-      attachment: m.attachment ? JSON.parse(m.attachment as string) : null,
+      attachment: parseMaybeJson(m.attachment),
       timestamp: m.timestamp.toISOString()
     }));
 
@@ -475,6 +506,14 @@ const snippetHistoryStore = new Map<string, Array<{ id: string; snippetId: strin
 // Version History: Get revisions for a snippet
 router.get('/snippets/:snippetId/history', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const { snippetId } = req.params;
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const snippet = await prisma.codeSnippet.findUnique({ where: { id: snippetId }, select: { teamId: true } });
+  if (!snippet) return res.status(404).json({ error: 'Snippet not found' });
+  if (!(await isTeamMember(req.user.id, snippet.teamId))) {
+    return res.status(403).json({ error: 'You are not a member of this team' });
+  }
+
   const revisions = snippetHistoryStore.get(snippetId) || [];
   res.json(revisions);
 });
@@ -485,6 +524,12 @@ router.post('/snippets/:snippetId/history', authMiddleware, async (req: Authenti
   const { code, language, commitMessage } = req.body;
 
   if (!code) return res.status(400).json({ error: 'Code content is required' });
+
+  const snippet = await prisma.codeSnippet.findUnique({ where: { id: snippetId }, select: { teamId: true } });
+  if (!snippet) return res.status(404).json({ error: 'Snippet not found' });
+  if (!req.user || !(await isTeamMember(req.user.id, snippet.teamId))) {
+    return res.status(403).json({ error: 'You are not a member of this team' });
+  }
 
   const revisions = snippetHistoryStore.get(snippetId) || [];
   const newRevision = {
@@ -507,6 +552,12 @@ router.post('/snippets/:snippetId/history', authMiddleware, async (req: Authenti
 router.post('/snippets/:snippetId/restore', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const { snippetId } = req.params;
   const { revisionId } = req.body;
+
+  const snippet = await prisma.codeSnippet.findUnique({ where: { id: snippetId }, select: { teamId: true } });
+  if (!snippet) return res.status(404).json({ error: 'Snippet not found' });
+  if (!req.user || !(await isTeamMember(req.user.id, snippet.teamId))) {
+    return res.status(403).json({ error: 'You are not a member of this team' });
+  }
 
   const revisions = snippetHistoryStore.get(snippetId) || [];
   const target = revisions.find(r => r.id === revisionId);
@@ -870,7 +921,7 @@ router.get('/teams/:teamId/messages/search', authMiddleware, requireTeamMember()
         userId: m.userId,
         author: m.user?.name || 'Teammate',
         role: m.user?.role || 'Developer',
-        attachment: m.attachment ? JSON.parse(m.attachment) : null,
+        attachment: parseMaybeJson(m.attachment),
         reactions: m.reactions ? JSON.parse(m.reactions) : {},
         editedAt: m.editedAt?.toISOString(),
         timestamp: m.timestamp.toISOString(),
@@ -1526,15 +1577,16 @@ router.post('/teams/:teamId/shop', authMiddleware, requireTeamMember(), async (r
   const { itemName, cost } = req.body;
   // Always charge the authenticated user — never trust a client-supplied userId.
   const userId = req.user!.id;
-  if (!itemName || cost === undefined) {
-    return res.status(400).json({ error: 'Missing purchase options' });
+  const price = Number(cost);
+  if (!itemName || cost === undefined || !Number.isFinite(price) || price < 0) {
+    return res.status(400).json({ error: 'Missing or invalid purchase options' });
   }
 
   try {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    if (user.xp < cost) {
+    if (user.xp < price) {
       return res.status(400).json({ error: 'Insufficient XP points' });
     }
 
@@ -1548,7 +1600,7 @@ router.post('/teams/:teamId/shop', authMiddleware, requireTeamMember(), async (r
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { xp: { decrement: cost } }
+      data: { xp: { decrement: price } }
     });
 
     await prisma.team.update({
@@ -1785,6 +1837,10 @@ router.post('/events/:id/tracks', authMiddleware, async (req: AuthenticatedReque
 
   if (!name) return res.status(400).json({ error: 'Track name is required' });
 
+  const canManage = await canManageEvent(req.user!.id, req.user!.role, eventId);
+  if (canManage === null) return res.status(404).json({ error: 'Event not found' });
+  if (!canManage) return res.status(403).json({ error: 'Forbidden: only the event organizer can modify this event' });
+
   try {
     const track = await prisma.track.create({
       data: {
@@ -1806,6 +1862,10 @@ router.post('/events/:id/prizes', authMiddleware, async (req: AuthenticatedReque
   const { title, description, value, trackId, sponsorId } = req.body;
 
   if (!title) return res.status(400).json({ error: 'Prize title is required' });
+
+  const canManage = await canManageEvent(req.user!.id, req.user!.role, eventId);
+  if (canManage === null) return res.status(404).json({ error: 'Event not found' });
+  if (!canManage) return res.status(403).json({ error: 'Forbidden: only the event organizer can modify this event' });
 
   try {
     const prize = await prisma.prize.create({
@@ -1831,6 +1891,10 @@ router.post('/events/:id/sponsors', authMiddleware, async (req: AuthenticatedReq
 
   if (!name) return res.status(400).json({ error: 'Sponsor name is required' });
 
+  const canManage = await canManageEvent(req.user!.id, req.user!.role, eventId);
+  if (canManage === null) return res.status(404).json({ error: 'Event not found' });
+  if (!canManage) return res.status(403).json({ error: 'Forbidden: only the event organizer can modify this event' });
+
   try {
     const sponsor = await prisma.sponsor.create({
       data: {
@@ -1855,6 +1919,10 @@ router.post('/events/:id/schedule', authMiddleware, async (req: AuthenticatedReq
   if (!title || !startTime || !endTime) {
     return res.status(400).json({ error: 'Title, startTime, and endTime are required' });
   }
+
+  const canManage = await canManageEvent(req.user!.id, req.user!.role, eventId);
+  if (canManage === null) return res.status(404).json({ error: 'Event not found' });
+  if (!canManage) return res.status(403).json({ error: 'Forbidden: only the event organizer can modify this event' });
 
   try {
     const scheduleItem = await prisma.scheduleItem.create({
