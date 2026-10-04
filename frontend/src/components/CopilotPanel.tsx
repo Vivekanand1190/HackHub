@@ -1,4 +1,5 @@
 import { API_BASE } from '../utils/api';
+import { copyText } from '../utils/clipboard';
 import React, { useState } from 'react';
 import { 
   Cpu, 
@@ -194,10 +195,10 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedPlayground(true);
-    setTimeout(() => setCopiedPlayground(false), 2000);
+  const copyToClipboard = async (text: string) => {
+    const copied = await copyText(text);
+    setCopiedPlayground(copied);
+    if (copied) setTimeout(() => setCopiedPlayground(false), 2000);
   };
 
   const getScoreColor = (score: number) => {

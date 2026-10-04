@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { getSocket, disconnectSocket } from '../../../utils/socket';
 import { apiUrl } from '../../../utils/api';
+import { copyText } from '../../../utils/clipboard';
 import WorkspaceDashboard from '../../../components/WorkspaceDashboard';
 import ChatWindow from '../../../components/ChatWindow';
 import CodeEditor from '../../../components/CodeEditor';
@@ -164,6 +165,16 @@ export default function WorkspacePage() {
 
         setSocket(s);
 
+        // A failed socket connection used to fail silently: presence stayed
+        // empty, and anything sent over the socket was never persisted, with
+        // nothing saying why. Log it plainly so the console names the cause.
+        s.on('connect_error', (err: Error) => {
+          console.error('[socket] connection failed:', err.message);
+        });
+        s.on('error', (err: Error) => {
+          console.error('[socket] error:', err.message);
+        });
+
         // Bind socket listeners
         s.on('members-update', (list: any[]) => {
           setOnlineMembers(list);
@@ -253,13 +264,11 @@ export default function WorkspacePage() {
     router.push('/');
   };
 
-  const handleCopyShareLink = () => {
-    if (typeof window !== 'undefined') {
-      const url = window.location.href;
-      navigator.clipboard.writeText(url);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    }
+  const handleCopyShareLink = async () => {
+    if (typeof window === 'undefined') return;
+    const copied = await copyText(window.location.href);
+    setCopiedLink(copied);
+    if (copied) setTimeout(() => setCopiedLink(false), 2000);
   };
 
   if (loading) {
