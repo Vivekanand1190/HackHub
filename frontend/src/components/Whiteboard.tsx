@@ -83,45 +83,78 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
   const [activeLasers, setActiveLasers] = useState<Record<string, { path: { x: number; y: number }[]; color: string; timestamp: number }>>({});
   const [remoteCursors, setRemoteCursors] = useState<Record<string, { socketId: string; userId: string; name: string; color: string; x: number; y: number }>>({});
   const lastEmitRef = useRef<number>(0);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  // Backing-store scale (device pixel ratio). The render path used to hard-code
+  // 2, which only matched on a 2x display.
+  const scaleRef = useRef<number>(2);
 
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
 
-  // Load initial history data
+  // Load initial history data.
+  // Always sync, including an empty array — the previous guard only applied
+  // non-empty data, so a cleared board (or switching team) left the old
+  // drawing on screen.
   useEffect(() => {
-    if (initialData && initialData.length > 0) {
-      setHistory(initialData);
-    }
+    setHistory(Array.isArray(initialData) ? initialData : []);
   }, [initialData]);
 
-  // Set up canvas dimensions & context
+  // Set up canvas dimensions & context.
+  // The canvas used to be sized from the whole panel (which includes the
+  // toolbar) and pinned to a hard-coded 550px height, so it never matched the
+  // drawing area and went stale as soon as the window was resized. Size it from
+  // its own container instead, honour the real device pixel ratio, and
+  // re-measure on resize.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !containerRef.current) return;
+    if (!canvas) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    canvas.width = rect.width * 2;
-    canvas.height = 550 * 2;
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `550px`;
+    const applySize = () => {
+      const parent = canvas.parentElement;
+      if (!parent) return;
 
-    const context = canvas.getContext('2d');
-    if (!context) return;
+      const rect = parent.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) return;
 
-    context.scale(2, 2);
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    contextRef.current = context;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
 
-    redrawAll(context);
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
+      scaleRef.current = dpr;
+
+      // setTransform (not scale) so re-running this never compounds.
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+      contextRef.current = context;
+
+      // Bumping this re-runs the redraw effect below with the *current* history.
+      setCanvasSize({ width: rect.width, height: rect.height });
+    };
+
+    applySize();
+
+    const observer = new ResizeObserver(applySize);
+    if (canvas.parentElement) observer.observe(canvas.parentElement);
+    window.addEventListener('resize', applySize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', applySize);
+    };
   }, []);
 
-  // Redraw canvas whenever history, pan, zoom, or activeLasers changes
+  // Redraw canvas whenever history, pan, zoom, size, or activeLasers changes
   useEffect(() => {
     const ctx = contextRef.current;
     if (ctx) {
       redrawAll(ctx);
     }
-  }, [history, panX, panY, zoom, activeLasers]);
+  }, [history, panX, panY, zoom, activeLasers, canvasSize]);
 
   // Space key keyboard listeners for panning
   useEffect(() => {
@@ -415,14 +448,15 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Scale for high resolution display (backing store scale)
-    ctx.scale(2, 2);
+    const storeScale = scaleRef.current;
+    ctx.scale(storeScale, storeScale);
     
     // Apply pan & zoom transforms
     ctx.translate(panX, panY);
     ctx.scale(zoom, zoom);
     
     // Draw background grid
-    drawGrid(ctx, canvas.width / 2, canvas.height / 2);
+    drawGrid(ctx, canvas.width / storeScale, canvas.height / storeScale);
     
     // Redraw history
     history.forEach(action => {
@@ -748,11 +782,11 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
     ctx.fillStyle = '#090b10';
     ctx.fillRect(0, 0, offscreen.width, offscreen.height);
     
-    ctx.scale(2, 2);
+    ctx.scale(scaleRef.current, scaleRef.current);
     ctx.translate(panX, panY);
     ctx.scale(zoom, zoom);
     
-    drawGrid(ctx, offscreen.width / 2, offscreen.height / 2);
+    drawGrid(ctx, offscreen.width / scaleRef.current, offscreen.height / scaleRef.current);
     
     history.forEach(action => {
       if (action.type !== 'sticky') {
