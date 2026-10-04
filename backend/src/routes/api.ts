@@ -307,7 +307,8 @@ router.get('/teams/:teamId/workspace', authMiddleware, requireTeamMember(), asyn
           include: { assignee: { select: { id: true, name: true } } }
         },
         messages: {
-          take: 50,
+          // A single 50-row window across every channel starved quiet channels.
+          take: 200,
           orderBy: { timestamp: 'desc' },
           include: { user: { select: { name: true, role: true } } }
         },
@@ -325,13 +326,21 @@ router.get('/teams/:teamId/workspace', authMiddleware, requireTeamMember(), asyn
     }
 
     // Return reversed messages for ascending chronological order
+    // The chat UI keys channels, threads, reactions and pins off these fields.
+    // Omitting them meant every message looked like it belonged to every
+    // channel and every reply was re-parented to the top level on reload.
     const formattedMessages = team.messages.reverse().map(m => ({
       id: m.id,
       text: m.text,
       system: m.system,
+      channel: m.channel || 'general',
+      parentId: m.parentId,
       userId: m.userId,
       user: m.user ? { name: m.user.name, role: m.user.role } : null,
       attachment: parseMaybeJson(m.attachment),
+      reactions: parseMaybeJson(m.reactions) || {},
+      editedAt: m.editedAt ? m.editedAt.toISOString() : null,
+      pinned: m.pinned,
       timestamp: m.timestamp.toISOString()
     }));
 
