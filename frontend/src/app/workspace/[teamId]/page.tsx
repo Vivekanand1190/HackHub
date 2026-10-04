@@ -123,7 +123,7 @@ export default function WorkspacePage() {
     const parsedUser = JSON.parse(savedUser);
     setUser(parsedUser);
 
-    // 2. Fetch initial Workspace Details
+    // 2. Fetch initial Workspace details
     const fetchWorkspace = async () => {
       try {
         const res = await fetch(apiUrl(`/api/teams/${teamId}/workspace`), {

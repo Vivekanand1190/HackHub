@@ -549,7 +549,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
       {/* Main Huddle Room Area */}
       <div className="flex-1 bg-black border-2 border-slate-800 p-4 relative flex flex-col justify-between overflow-hidden">
         {/* Active Members Grid */}
-        <div className="flex-1 overflow-y-auto grid grid-cols1- sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2">
+        <div className="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2">
           {showEmptyState ? (
             <div className="col-span-full flex flex-col items-center justify-center h-48 text-slate-500 gap-2">
               <Users className="h-8 w-8 text-slate-700" />
