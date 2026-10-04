@@ -29,6 +29,17 @@ interface HuddleMember {
   isSpeaking: boolean;
 }
 
+/** Safely parse a value that may be a JSON string, a plain string, or null. */
+function parseMaybeJson(value: unknown): any {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 const ACCENT_COLORS = ['#ffe500', '#ff4d8d', '#4d7cff', '#b8ff3c', '#a78bfa', '#ff9f43', '#00d2d3', '#ff6b6b'];
 
 function getUserColor(userId: string): string {
@@ -181,7 +192,7 @@ export function registerSocketHandlers(io: Server) {
           parentId: message.parentId,
           userId: message.userId,
           user: message.user ? { name: message.user.name, role: message.user.role } : null,
-          attachment: message.attachment ? JSON.parse(message.attachment) : null,
+          attachment: parseMaybeJson(message.attachment),
           reactions: {},
           timestamp: message.timestamp.toISOString(),
         });
@@ -261,16 +272,17 @@ export function registerSocketHandlers(io: Server) {
 
     // Chat Reaction
     socket.on('chat-reaction', (data) => {
-      const { teamId, messageId, emoji, userName } = data || {};
+      const { teamId, messageId, emoji } = data || {};
       if (!inTeamRoom(teamId)) return;
-      io.to(teamId).emit('chat-reaction', { messageId, emoji, userName });
+      // Never trust a client-supplied name — attribute the reaction to the authenticated user.
+      io.to(teamId).emit('chat-reaction', { messageId, emoji, userName: user.name });
     });
 
     // Chat Pin / Unpin
     socket.on('chat-pin', (data) => {
-      const { teamId, messageId, isPinned, text, author } = data || {};
+      const { teamId, messageId, isPinned, text } = data || {};
       if (!inTeamRoom(teamId)) return;
-      io.to(teamId).emit('chat-pin', { messageId, isPinned, text, author });
+      io.to(teamId).emit('chat-pin', { messageId, isPinned, text, author: user.name });
     });
 
     // Monaco Code Update
@@ -452,6 +464,9 @@ export function registerSocketHandlers(io: Server) {
       if (!inTeamRoom(teamId)) return;
 
       if (to) {
+        // Only relay to a socket that is actually in this team's room.
+        const target = io.sockets.sockets.get(to);
+        if (!target || target.data.teamId !== teamId) return;
         io.to(to).emit('webrtc-signal', { signal, from: socket.id });
       } else {
         socket.to(teamId).emit('webrtc-signal', { signal, from: socket.id });
@@ -459,28 +474,38 @@ export function registerSocketHandlers(io: Server) {
     });
 
     // Remote Control Relay Events
+    // Relay to another socket ONLY if that socket is in the same team room —
+    // otherwise any authenticated user could target any socket on the server.
+    const relayToTeammate = (
+      teamId: string | undefined,
+      to: string | undefined,
+      event: string,
+      payload: Record<string, unknown>
+    ) => {
+      if (!inTeamRoom(teamId) || !to) return;
+      const target = io.sockets.sockets.get(to);
+      if (!target || target.data.teamId !== teamId) return;
+      io.to(to).emit(event, { ...payload, from: socket.id });
+    };
+
     socket.on('remote-control-request', (data) => {
-      const { to, fromName } = data || {};
-      if (!to) return;
-      io.to(to).emit('remote-control-request', { from: socket.id, fromName: fromName || user.name });
+      const { teamId, to, fromName } = data || {};
+      relayToTeammate(teamId, to, 'remote-control-request', { fromName: fromName || user.name });
     });
 
     socket.on('remote-control-response', (data) => {
-      const { to, accepted } = data || {};
-      if (!to) return;
-      io.to(to).emit('remote-control-response', { from: socket.id, accepted });
+      const { teamId, to, accepted } = data || {};
+      relayToTeammate(teamId, to, 'remote-control-response', { accepted });
     });
 
     socket.on('remote-control-cursor', (data) => {
-      const { to, position } = data || {};
-      if (!to) return;
-      io.to(to).emit('remote-control-cursor', { from: socket.id, position });
+      const { teamId, to, position } = data || {};
+      relayToTeammate(teamId, to, 'remote-control-cursor', { position });
     });
 
     socket.on('remote-control-input', (data) => {
-      const { to, inputType, eventData } = data || {};
-      if (!to) return;
-      io.to(to).emit('remote-control-input', { from: socket.id, inputType, eventData });
+      const { teamId, to, inputType, eventData } = data || {};
+      relayToTeammate(teamId, to, 'remote-control-input', { inputType, eventData });
     });
 
     // Voice / Video Huddle Handlers
