@@ -43,6 +43,7 @@ import CollaborativeScratchpad from '../../../components/CollaborativeScratchpad
 import CommandPalette from '../../../components/CommandPalette';
 import JudgeView from '../../../components/JudgeView';
 import VoiceHuddlePanel from '@/components/VoiceHuddlePanel';
+import TeamCall from '@/components/TeamCall';
 import NotificationCenter from '@/components/NotificationCenter';
 
 export default function WorkspacePage() {
@@ -52,7 +53,7 @@ export default function WorkspacePage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  type TabType = 'dashboard' | 'chat' | 'editor' | 'whiteboard' | 'tasks' | 'copilot' | 'screenshare' | 'files' | 'notes' | 'judge' | 'huddle';
+  type TabType = 'dashboard' | 'chat' | 'editor' | 'whiteboard' | 'tasks' | 'copilot' | 'screenshare' | 'files' | 'notes' | 'judge' | 'huddle' | 'call';
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
   // Session user details
@@ -98,9 +99,10 @@ export default function WorkspacePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [huddleCount, setHuddleCount] = useState(0);
+  const [callCount, setCallCount] = useState(0);
 
   useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+    const handleGlobalKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCmdPaletteOpen(prev => !prev);
@@ -171,6 +173,10 @@ export default function WorkspacePage() {
 
         s.on('huddle-update', (list: any[]) => {
           setHuddleCount((list || []).length);
+        });
+
+        s.on('call-presence', (data: { participantCount?: number }) => {
+          setCallCount(data?.participantCount || 0);
         });
 
         s.on('timer-sync', (timer: any) => {
@@ -452,6 +458,22 @@ export default function WorkspacePage() {
                 </span>
               )}
             </button>
+
+            <button
+              onClick={() => setActiveTab('call')}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-r-xl text-xs font-bold transition text-left border-l-2.5 relative ${
+                activeTab === 'call'
+                  ? 'bg-[#4d7cff] text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
+                  : 'border-l-transparent text-slate-400 hover:bg-slate-900/30 hover:text-slate-200'
+              }`}
+            >
+              <Video className="h-4.5 w-4.5 text-[#4d7cff]" /> Team Call
+              {callCount > 0 && (
+                <span className="ml-auto px-1.5 py-0.5 bg-black text-[#4d7cff] border border-[#4d7cff] text-[9px] font-mono font-bold">
+                  {callCount} Live
+                </span>
+              )}
+            </button>
           </nav>
         </div>
 
@@ -520,6 +542,20 @@ export default function WorkspacePage() {
 
           {/* Active timer controls & search palette */}
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setActiveTab('call')}
+              className="glass-button-secondary text-xs py-1.5! px-3! flex items-center gap-1.5 font-bold"
+              title="Join the team call"
+            >
+              <Video className="h-3.5 w-3.5 text-[#4d7cff]" />
+              <span className="hidden sm:inline">Team Call</span>
+              {callCount > 0 && (
+                <span className="px-1.5 py-0.5 bg-[#4d7cff] text-black border border-black text-[9px] font-mono font-bold">
+                  {callCount}
+                </span>
+              )}
+            </button>
+
             <NotificationCenter socket={socket} />
 
             <button
@@ -724,6 +760,14 @@ export default function WorkspacePage() {
               teamId={teamId}
               teamName={teamName}
               user={user}
+            />
+          )}
+
+          {activeTab === 'call' && (
+            <TeamCall
+              teamId={teamId}
+              user={user}
+              socket={socket}
             />
           )}
         </div>
