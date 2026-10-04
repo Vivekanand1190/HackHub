@@ -1040,7 +1040,7 @@ function createSimpleZipBuffer(files: Array<{ name: string; content: string | Bu
     cdHeader.writeUInt32LE(currentOffset, 42);
 
     centralDirectoryBuffers.push(cdHeader, filenameBuf);
-    currentOffset += 30 + filenameBub.length + contentBuf.length;
+    currentOffset += 30 + filenameBuf.length + contentBuf.length;
   }
 
   const cdStartOffset = currentOffset;
@@ -1409,7 +1409,7 @@ router.post('/copilot/audit/:teamId', authMiddleware, requireTeamMember(), async
     });
 
     snippets.forEach(s => {
-      const conditionalMatches = s.code.match(/(if|for|while|case|&&|\\|\\|)/g) || [];
+      const conditionalMatches = s.code.match(/(if|for|while|case|&&|[|]{2})/g) || [];
       const compVal = 1 + conditionalMatches.length;
       complexityAnalysis.push({
         file: s.title,
