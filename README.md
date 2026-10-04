@@ -67,7 +67,8 @@ CORS_ORIGINS="http://localhost:3000"
 ```bash
 cd backend
 npm install
-npx prisma db push
+npx prisma generate
+npx prisma migrate deploy   # applies the migrations and creates every table
 npm run dev
 ```
 The backend server runs at `http://localhost:8888`.

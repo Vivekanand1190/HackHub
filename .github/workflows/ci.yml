@@ -7,7 +7,7 @@ on:
 
 jobs:
   backend:
-    name: Backend typecheck
+    name: Backend typecheck & tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -20,9 +20,13 @@ jobs:
       - run: npm install
       - run: npx prisma generate
       - run: npx tsc --noEmit
+      # The suite existed but was never executed in CI. It covers the API's
+      # auth/authorization behaviour, config, zip export and the local-only
+      # outbound-network audit.
+      - run: npm test
 
   frontend:
-    name: Frontend lint
+    name: Frontend typecheck & lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,4 +37,7 @@ jobs:
         with:
           node-version: '20'
       - run: npm install
+      # Lint alone cannot catch type errors; they previously only surfaced at
+      # `next build` (i.e. at deploy time). Typecheck before linting.
+      - run: npx tsc --noEmit
       - run: npm run lint

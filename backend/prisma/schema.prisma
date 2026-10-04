@@ -96,7 +96,20 @@ model CodeSnippet {
   user      User     @relation(fields: [userId], references: [id])
   teamId    String
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  revisions SnippetRevision[]
   createdAt DateTime @default(now())
+}
+
+/// Immutable snapshot of a snippet at a point in time (version history).
+model SnippetRevision {
+  id            String      @id @default(uuid())
+  snippetId     String
+  snippet       CodeSnippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  code          String
+  language      String      @default("javascript")
+  commitMessage String      @default("")
+  author        String      @default("")
+  createdAt     DateTime    @default(now())
 }
 
 model Document {
