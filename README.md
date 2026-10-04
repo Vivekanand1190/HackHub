@@ -87,3 +87,25 @@ cd backend
 npm test
 ```
 Runs all unit & integration tests, including the local-only outbound network audit test.
+
+---
+
+## Troubleshooting
+
+### "Token is invalid or expired"
+
+Every backend that issues or verifies tokens must share the same `JWT_SECRET`.
+This shows up most often when you run the app two different ways — for example
+`docker compose up` for the backend but `npm run dev` for the frontend, or a
+local backend alongside a deployed one — and the two processes ended up with
+different secrets. A token minted by one is then rejected by the other.
+
+To fix it, set one explicit `JWT_SECRET` in `backend/.env` (generate it with
+`openssl rand -hex 32`) and use that same value everywhere the backend runs,
+including your deployment environment. Then clear the stale token from the
+browser (`localStorage.removeItem('hackhub_token')`) and sign in again. Changing
+`JWT_SECRET` deliberately invalidates all existing sessions — that is expected.
+
+In development you can also simply leave `JWT_SECRET` unset: the backend then
+uses one stable built-in dev secret for every start path, which keeps token
+s valid across restarts.

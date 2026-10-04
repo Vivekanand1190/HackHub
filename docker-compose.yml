@@ -15,9 +15,14 @@ services:
       DATABASE_URL: "file:./dev.db"
       FRONTEND_URL: "http://localhost:3000"
       CORS_ORIGINS: "http://localhost:3000"
-      # Development-only secrets. Never use these in production.
-      JWT_SECRET: "dev-only-jwt-secret-change-me"
-      SESSION_SECRET: "dev-only-session-secret-change-me"
+      # JWT_SECRET is deliberately NOT set here. The backend falls back to a
+      # stable development-only secret (see backend/src/config.ts) when it is
+      # unset, and that same fallback applies when you run `npm run dev`
+      # directly. Setting a *different* value here would give the containerised
+      # and non-containerised backends different signing keys, so a token minted
+      # by one would be rejected by the other as "Token is invalid or expired".
+      # To use your own secret, set JWT_SECRET in backend/.env instead — that
+      # file is read by both paths.
     volumes:
       - ./backend:/app
       - backend_node_modules:/app/node_modules

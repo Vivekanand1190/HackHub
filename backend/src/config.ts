@@ -29,7 +29,10 @@ function resolveJwtSecret(): string {
 
   console.warn(
     '⚠️  JWT_SECRET is not set — using a stable development-only secret. ' +
-      'Set JWT_SECRET in backend/.env to silence this warning.'
+      'Set JWT_SECRET in backend/.env to silence this warning.\n' +
+      '   Note: every backend that issues or verifies tokens must share the ' +
+      'same JWT_SECRET. If two instances disagree, tokens minted by one are ' +
+      'rejected by the other as "Token is invalid or expired".'
   );
   return 'hackhub-development-only-jwt-secret';
 }
