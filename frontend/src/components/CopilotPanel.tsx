@@ -456,7 +456,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
                   { id: 'explain-code', label: '3-Line Code Explainer', desc: 'Explains complex script steps simply' },
                   { id: 'commit-generator', label: 'Git Commit Generator', desc: 'Summarizes edits conventional commits' },
                   { id: 'pitch-simulator', label: 'Judge technical Q&A Critic', desc: 'Creates challenging questions about code' },
-                  { id: 'slide-outline', label: 'Pitch Deck Outlines', desc: 'Suggests visual layout for pitch decks' },
+                  { id: 'slide-outline', label: 'Pitch Deck Outliner', desc: 'Suggests visual layout for pitch decks' },
                   { id: 'tagline-improver', label: 'SaaS Tagline & Pitch Improver', desc: 'Creates hooks and selling slogans' }
                 ].map((tool) => (
                   <button
