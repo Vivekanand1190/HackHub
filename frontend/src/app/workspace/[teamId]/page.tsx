@@ -123,7 +123,7 @@ export default function WorkspacePage() {
     const parsedUser = JSON.parse(savedUser);
     setUser(parsedUser);
 
-    // 2. Fetch initial Workspace details
+    // 2. Fetch initial Workspace Details
     const fetchWorkspace = async () => {
       try {
         const res = await fetch(apiUrl(`/api/teams/${teamId}/workspace`), {
@@ -719,14 +719,16 @@ export default function WorkspacePage() {
             />
           )}
 
-          {activeTab === 'huddle' && (
+          {/* Kept mounted rather than conditionally rendered: unmounting on a
+              tab switch would tear down an in-progress call. Hidden instead. */}
+          <div className={activeTab === 'huddle' ? 'h-full' : 'hidden'}>
             <VoiceHuddlePanel
               socket={socket}
               teamId={teamId}
               teamName={teamName}
               user={user}
             />
-          )}
+          </div>
         </div>
 
         <CommandPalette
