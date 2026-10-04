@@ -107,5 +107,5 @@ browser (`localStorage.removeItem('hackhub_token')`) and sign in again. Changing
 `JWT_SECRET` deliberately invalidates all existing sessions — that is expected.
 
 In development you can also simply leave `JWT_SECRET` unset: the backend then
-uses one stable built-in dev secret for every start path, which keeps token
-s valid across restarts.
+uses one stable built-in dev secret for every start path, which keeps tokens
+valid across restarts.
