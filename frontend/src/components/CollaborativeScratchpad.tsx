@@ -222,7 +222,7 @@ export default function CollaborativeScratchpad({ socket, teamId, initialDocumen
         return <li key={idx} className="text-xs text-slate-300 ml-4 list-disc mb-1">{line.substring(2)}</li>;
       }
       // Bold & Italic replacements (basic regex rendering)
-      let renderedLine = line
+      const renderedLine = line
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/`(.*?)`/g, '<code class="bg-slate-900 px-1 py-0.5 rounded text-indigo-400 font-mono text-[10px]">$1</code>');
