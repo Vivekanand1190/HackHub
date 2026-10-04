@@ -43,6 +43,7 @@ export default function TeamCall({ teamId, user, socket }: TeamCallProps) {
   const [copied, setCopied] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [inCallCount, setInCallCount] = useState(0);
+  const [localSid, setLocalSid] = useState<string | null>(null);
 
   const roomRef = useRef<Room | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -89,6 +90,7 @@ export default function TeamCall({ teamId, user, socket }: TeamCallProps) {
       return;
     }
     setParticipants([room.localParticipant, ...Array.from(room.remoteParticipants.values())]);
+    setLocalSid(room.localParticipant.sid);
     setVersion((v) => v + 1);
   }, []);
 
@@ -179,6 +181,7 @@ export default function TeamCall({ teamId, user, socket }: TeamCallProps) {
       roomRef.current = null;
     }
     setParticipants([]);
+    setLocalSid(null);
     setSharing(false);
     setPhase('prejoin');
     socket?.emit('call-leave', { teamId });
@@ -333,7 +336,7 @@ export default function TeamCall({ teamId, user, socket }: TeamCallProps) {
               <ParticipantTile
                 key={p.sid}
                 participant={p}
-                isLocal={p === roomRef.current?.localParticipant}
+                isLocal={p.sid === localSid}
                 version={version}
               />
             ))}
