@@ -213,3 +213,22 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-track { background: #000; }
 ::-webkit-scrollbar-thumb { background: var(--brut-yellow); border: 3px solid #000; }
 ::-webkit-scrollbar-thumb:hover { background: var(--ink); }
+
+/* ---- Responsive safety net -----------------------------------------
+   Several panels use a bare 12-column grid plus fixed pixel widths and
+   heights, which collapse into unusable slivers on a phone. Below the
+   `lg` breakpoint (1024px) stack those grids and let the fixed panels
+   shrink to the available width instead of overflowing the viewport.
+   Layouts that already declare `grid-cols-1 lg:grid-cols-12` are
+   untouched, because their class name carries the `lg:` prefix. */
+@media (max-width: 1023px) {
+  .grid-cols-12 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+
+  /* Fixed-width side panels become full-width. */
+  .w-\[200px\], .w-\[240px\], .w-\[330px\] { width: 100% !important; }
+
+  /* Tall fixed-height panels are capped against the viewport. */
+  .h-\[500px\] { height: min(500px, 70vh) !important; }
+  .h-\[420px\] { height: min(420px, 60vh) !important; }
+  .h-\[80vh\] { height: auto !important; min-height: 70vh; }
+}
