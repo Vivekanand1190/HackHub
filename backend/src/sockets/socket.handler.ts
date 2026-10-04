@@ -67,6 +67,90 @@ const activeHuddles = new Map<string, Map<string, HuddleMember>>();
 // The call itself is a LiveKit room; this only mirrors the count for the UI.
 const activeCalls = new Map<string, Set<string>>();
 
+// ---------------------------------------------------------------------------
+// Whiteboard state.
+//
+// The board used to be read-modify-written in full for every single stroke:
+// findUnique the team, parse the whole array, push, then update the whole array
+// again. Two people drawing at once each read the same snapshot, and the later
+// write silently discarded the other's strokes. Because every pointer move is
+// one action, the cost also grew with the size of the drawing.
+//
+// The board is now held in memory as the source of truth, loaded once per team
+// from the database, mutated in place, and flushed through a per-team
+// serialised write chain so writes can never interleave.
+// ---------------------------------------------------------------------------
+const whiteboardState = new Map<string, any[]>();
+const whiteboardWrites = new Map<string, Promise<unknown>>();
+const WHITEBOARD_MAX_ACTIONS = 5000;
+
+async function loadWhiteboard(teamId: string): Promise<any[]> {
+  const cached = whiteboardState.get(teamId);
+  if (cached) return cached;
+
+  let actions: any[] = [];
+  try {
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: { whiteboardData: true },
+    });
+    const parsed = JSON.parse(team?.whiteboardData || '[]');
+    if (Array.isArray(parsed)) actions = parsed;
+  } catch (err) {
+    console.error('[Socket] Failed to load whiteboard, starting empty:', err);
+  }
+
+  whiteboardState.set(teamId, actions);
+  return actions;
+}
+
+/** Queue a database write for a team's board, never overlapping the previous one. */
+function persistWhiteboard(teamId: string) {
+  const previous = whiteboardWrites.get(teamId) ?? Promise.resolve();
+  const next = previous
+    .then(async () => {
+      const actions = whiteboardState.get(teamId) ?? [];
+      await prisma.team.update({
+        where: { id: teamId },
+        data: { whiteboardData: JSON.stringify(actions) },
+      });
+    })
+    .catch((err) => {
+      console.error('[Socket] Failed to persist whiteboard:', err);
+    });
+  whiteboardWrites.set(teamId, next);
+}
+
+/** Apply one draw action to a board array, in place. */
+function applyWhiteboardAction(actions: any[], action: any) {
+  const idx = action.id ? actions.findIndex((a: any) => a.id === action.id) : -1;
+
+  switch (action.type) {
+    case 'sticky-move':
+      if (idx !== -1) actions[idx] = { ...actions[idx], x: action.x, y: action.y };
+      return;
+    case 'sticky-edit':
+      if (idx !== -1) {
+        actions[idx] = {
+          ...actions[idx],
+          ...(action.text !== undefined ? { text: action.text } : {}),
+          ...(action.color !== undefined ? { color: action.color } : {}),
+        };
+      }
+      return;
+    case 'sticky-delete':
+      if (idx !== -1) actions.splice(idx, 1);
+      return;
+    case 'laser':
+      // Transient laser pointers are never persisted.
+      return;
+    default:
+      // Skip a replayed action we already hold, and stop the board growing
+      // without bound.
+      if (idx === -1 && actions.length < WHITEBOARD_MAX_ACTIONS) actions.push(action);
+  }
+}
+
 function broadcastCallPresence(io: Server, teamId: string) {
   const set = activeCalls.get(teamId);
   const participantCount = set ? set.size : 0;
@@ -224,9 +308,15 @@ export function registerSocketHandlers(io: Server) {
           });
 
           if (team) {
-            const allMembers = [team.leader, ...team.members];
+            // The leader is usually also a member, so de-duplicate by id.
+            const allMembers = [team.leader, ...team.members].filter(Boolean) as Array<{ id: string; name: string }>;
+            const seen = new Set<string>();
+
             for (const member of allMembers) {
-              if (member.id !== user.id && mentionedNames.some((name: string) => name.toLowerCase() === member.name.toLowerCase())) {
+              if (seen.has(member.id) || member.id === user.id) continue;
+              seen.add(member.id);
+
+              if (mentionedNames.some((name: string) => name.toLowerCase() === member.name.toLowerCase())) {
                 const notif = await prisma.notification.create({
                   data: {
                     userId: member.id,
@@ -237,7 +327,11 @@ export function registerSocketHandlers(io: Server) {
                     targetUrl: `/workspace/${teamId}`,
                   }
                 });
-                io.to(teamId).emit('notification:new', notif);
+                // A mention is for ONE person. Broadcasting it to the room told
+                // everybody they had been mentioned.
+                for (const client of io.sockets.sockets.values()) {
+                  if (client.data.user?.id === member.id) client.emit('notification:new', notif);
+                }
               }
             }
           }
@@ -253,8 +347,13 @@ export function registerSocketHandlers(io: Server) {
       if (!inTeamRoom(teamId) || !messageId || !text) return;
 
       try {
-        const existing = await prisma.message.findUnique({ where: { id: messageId } });
-        if (existing && (existing.userId === user.id || user.role === 'Leader')) {
+        const existing = await prisma.message.findUnique({
+          where: { id: messageId },
+          select: { userId: true, teamId: true },
+        });
+        // The message must belong to the room this socket actually joined,
+        // otherwise a leader of one team could edit another team's messages.
+        if (existing && existing.teamId === teamId && (existing.userId === user.id || user.role === 'Leader')) {
           const updated = await prisma.message.update({
             where: { id: messageId },
             data: { text, editedAt: new Date() },
@@ -277,8 +376,13 @@ export function registerSocketHandlers(io: Server) {
       if (!inTeamRoom(teamId) || !messageId) return;
 
       try {
-        const existing = await prisma.message.findUnique({ where: { id: messageId } });
-        if (existing && (existing.userId === user.id || user.role === 'Leader')) {
+        const existing = await prisma.message.findUnique({
+          where: { id: messageId },
+          select: { userId: true, teamId: true },
+        });
+        if (existing && existing.teamId === teamId && (existing.userId === user.id || user.role === 'Leader')) {
+          // Replies hang off the parent, so remove the thread along with it.
+          await prisma.message.deleteMany({ where: { parentId: messageId } });
           await prisma.message.delete({ where: { id: messageId } });
           io.to(teamId).emit('chat-delete', { messageId });
         }
@@ -287,19 +391,71 @@ export function registerSocketHandlers(io: Server) {
       }
     });
 
-    // Chat Reaction
-    socket.on('chat-reaction', (data) => {
+    // Chat Reaction — persisted on the message, then broadcast authoritatively.
+    socket.on('chat-reaction', async (data) => {
       const { teamId, messageId, emoji } = data || {};
-      if (!inTeamRoom(teamId)) return;
-      // Never trust a client-supplied name — attribute the reaction to the authenticated user.
-      io.to(teamId).emit('chat-reaction', { messageId, emoji, userName: user.name });
+      if (!inTeamRoom(teamId) || !messageId || !emoji || typeof emoji !== 'string') return;
+
+      try {
+        const message = await prisma.message.findUnique({
+          where: { id: messageId },
+          select: { id: true, teamId: true, reactions: true },
+        });
+        if (!message || message.teamId !== teamId) return;
+
+        // Never trust a client-supplied name — attribute to the authenticated user.
+        const reactions = parseMaybeJson(message.reactions) || {};
+        const users: string[] = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
+        const alreadyReacted = users.includes(user.name);
+        const updatedUsers = alreadyReacted
+          ? users.filter((u) => u !== user.name)
+          : [...users, user.name];
+
+        if (updatedUsers.length > 0) reactions[emoji] = updatedUsers;
+        else delete reactions[emoji];
+
+        const updated = await prisma.message.update({
+          where: { id: messageId },
+          data: { reactions: JSON.stringify(reactions) },
+        });
+
+        // Send the whole map for this message so every client converges on the
+        // same state instead of each toggling independently.
+        io.to(teamId).emit('chat-reaction', {
+          messageId,
+          reactions: parseMaybeJson(updated.reactions) || {},
+        });
+      } catch (err) {
+        console.error('[Socket] Chat reaction error:', err);
+      }
     });
 
-    // Chat Pin / Unpin
-    socket.on('chat-pin', (data) => {
-      const { teamId, messageId, isPinned, text } = data || {};
-      if (!inTeamRoom(teamId)) return;
-      io.to(teamId).emit('chat-pin', { messageId, isPinned, text, author: user.name });
+    // Chat Pin / Unpin — persisted so pins survive a reload.
+    socket.on('chat-pin', async (data) => {
+      const { teamId, messageId, isPinned } = data || {};
+      if (!inTeamRoom(teamId) || !messageId) return;
+
+      try {
+        const message = await prisma.message.findUnique({
+          where: { id: messageId },
+          select: { id: true, teamId: true, text: true, attachment: true, user: { select: { name: true } } },
+        });
+        if (!message || message.teamId !== teamId) return;
+
+        const updated = await prisma.message.update({
+          where: { id: messageId },
+          data: { pinned: Boolean(isPinned) },
+        });
+
+        io.to(teamId).emit('chat-pin', {
+          messageId,
+          isPinned: updated.pinned,
+          text: updated.text || (updated.attachment ? 'File attachment' : 'Message'),
+          author: message.user?.name || 'Teammate',
+        });
+      } catch (err) {
+        console.error('[Socket] Chat pin error:', err);
+      }
     });
 
     // Monaco Code Update
@@ -365,43 +521,14 @@ export function registerSocketHandlers(io: Server) {
     // Canvas Draw actions
     socket.on('draw-action', async (data) => {
       const { teamId, action } = data || {};
-      if (!inTeamRoom(teamId) || !action) return;
+      if (!inTeamRoom(teamId) || !action || typeof action !== 'object') return;
 
       socket.to(teamId).emit('draw-action', action);
 
       try {
-        const team = await prisma.team.findUnique({ where: { id: teamId } });
-        if (team) {
-          const currentActions = JSON.parse(team.whiteboardData || '[]');
-
-          if (action.type === 'sticky-move') {
-            const idx = currentActions.findIndex((a: any) => a.id === action.id);
-            if (idx !== -1) {
-              currentActions[idx].x = action.x;
-              currentActions[idx].y = action.y;
-            }
-          } else if (action.type === 'sticky-edit') {
-            const idx = currentActions.findIndex((a: any) => a.id === action.id);
-            if (idx !== -1) {
-              if (action.text !== undefined) currentActions[idx].text = action.text;
-              if (action.color !== undefined) currentActions[idx].color = action.color;
-            }
-          } else if (action.type === 'sticky-delete') {
-            const idx = currentActions.findIndex((a: any) => a.id === action.id);
-            if (idx !== -1) {
-              currentActions.splice(idx, 1);
-            }
-          } else if (action.type === 'laser') {
-            // Transient laser pointers are not persisted
-          } else {
-            currentActions.push(action);
-          }
-
-          await prisma.team.update({
-            where: { id: teamId },
-            data: { whiteboardData: JSON.stringify(currentActions) },
-          });
-        }
+        const actions = await loadWhiteboard(teamId);
+        applyWhiteboardAction(actions, action);
+        persistWhiteboard(teamId);
       } catch (err) {
         console.error('[Socket] Failed to save draw action:', err);
       }
@@ -414,10 +541,8 @@ export function registerSocketHandlers(io: Server) {
       socket.to(teamId).emit('draw-clear');
 
       try {
-        await prisma.team.update({
-          where: { id: teamId },
-          data: { whiteboardData: '[]' },
-        });
+        whiteboardState.set(teamId, []);
+        persistWhiteboard(teamId);
       } catch (err) {
         console.error('[Socket] Failed to clear whiteboard database state:', err);
       }
