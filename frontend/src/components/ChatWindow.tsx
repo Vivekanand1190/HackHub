@@ -35,6 +35,8 @@ interface Message {
   channel?: string;
   parentId?: string | null;
   editedAt?: string | null;
+  reactions?: Record<string, string[]>;
+  pinned?: boolean;
 }
 
 interface TeamMember {
@@ -79,6 +81,27 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
 
   useEffect(() => {
     setMessages(initialMessages);
+
+    // Reactions and pins are persisted server-side now, so seed them from the
+    // workspace payload instead of starting empty on every reload.
+    const seededReactions: Record<string, Record<string, string[]>> = {};
+    const seededPins: Array<{ id: string; text: string; author: string }> = [];
+
+    for (const msg of initialMessages) {
+      if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+        seededReactions[msg.id] = msg.reactions;
+      }
+      if (msg.pinned) {
+        seededPins.push({
+          id: msg.id,
+          text: msg.text || (msg.attachment ? 'File attachment' : 'Message'),
+          author: msg.user?.name || 'Teammate',
+        });
+      }
+    }
+
+    setReactions(seededReactions);
+    setPinnedMessages(seededPins);
   }, [initialMessages]);
 
   useEffect(() => {
@@ -101,20 +124,12 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
       setActiveThreadMessage(prev => prev && prev.id === data.messageId ? null : prev);
     };
 
-    const handleReaction = (data: { messageId: string; emoji: string; userName: string }) => {
-      setReactions(prev => {
-        const msgReactions = prev[data.messageId] || {};
-        const emojiUsers = msgReactions[data.emoji] || [];
-        const hasUser = emojiUsers.includes(data.userName);
-        const updatedUsers = hasUser ? emojiUsers.filter(u => u !== data.userName) : [...emojiUsers, data.userName];
-        return {
-          ...prev,
-          [data.messageId]: {
-            ...msgReactions,
-            [data.emoji]: updatedUsers
-          }
-        };
-      });
+    const handleReaction = (data: { messageId: string; reactions?: Record<string, string[]> }) => {
+      // Replace with the server's map — it is the single source of truth.
+      setReactions(prev => ({
+        ...prev,
+        [data.messageId]: data.reactions || {}
+      }));
     };
 
     const handlePin = (data: { messageId: string; isPinned: boolean; text: string; author: string }) => {
@@ -169,7 +184,8 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
 
   const toggleReaction = (messageId: string, emoji: string) => {
     if (socket) {
-      socket.emit('chat-reaction', { teamId, messageId, emoji, userName });
+      // The server attributes the reaction to the authenticated user itself.
+      socket.emit('chat-reaction', { teamId, messageId, emoji });
     }
   };
 
