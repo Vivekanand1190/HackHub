@@ -10,6 +10,7 @@ import fs from 'fs';
 import { config } from './config';
 import passportSetup from './passport';
 import { apiRouter } from './routes/api';
+import { callRouter } from './routes/call';
 import { registerSocketHandlers } from './sockets/socket.handler';
 
 const app = express();
@@ -73,6 +74,9 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Mount main api router
 app.use('/api', apiRouter);
+
+// Live team-call token endpoint (LiveKit)
+app.use('/api', callRouter);
 
 // Initialize Socket.io Server
 const io = new Server(server, {
