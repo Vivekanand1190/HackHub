@@ -41,20 +41,11 @@ type TabType = 'coach' | 'playground' | 'audit';
 export default function CopilotPanel({ teamId, initialState, onScanComplete }: CopilotPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('coach');
   const [analysis, setAnalysis] = useState(initialState || {
-    suggestions: [
-      'Create your first project task cards to build an implementation checklist.',
-      'Draft your core application schemas inside the database dashboard.'
-    ],
-    bugs: [
-      'No active project files found. Save your code to enable security vulnerability checks.'
-    ],
-    features: [
-      'Implement a clean workspace dashboard showing member activities to win the judges over.'
-    ],
-    pitchTips: [
-      'Define a clear problem statement before diving into complex database architectures.'
-    ],
-    readinessScore: 15
+    suggestions: [],
+    bugs: [],
+    features: [],
+    pitchTips: [],
+    readinessScore: 0
   });
 
   const [scanning, setScanning] = useState(false);
@@ -363,39 +354,51 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
                   <CheckCircle className="h-4.5 w-4.5 text-indigo-400" /> Actionable Next Steps
                 </h3>
                 <div className="flex flex-col gap-2.5">
-                  {(analysis?.suggestions || []).map((item, idx) => (
-                    <div key={idx} className="p-3 rounded-xl bg-slate-900/30 border border-slate-900 text-xs text-slate-300 leading-relaxed flex items-center justify-between gap-4 hover:border-slate-800 transition">
-                      <div className="flex items-start gap-2.5">
-                        <span className="font-bold text-indigo-400 shrink-0">{idx + 1}.</span>
-                        <span>{item}</span>
-                      </div>
-                      <button
-                        onClick={() => handleAddSuggestionToKanban(item, idx)}
-                        disabled={addingSuggestionMap[idx]}
-                        className="bg-slate-800 hover:bg-slate-700/80 text-indigo-450 hover:text-indigo-300 text-[10px] font-bold py-1.5 px-3 rounded-lg transition flex items-center gap-1 shrink-0 border border-slate-800"
-                      >
-                        {addingSuggestionMap[idx] ? 'Adding...' : (
-                          <>
-                            <Plus className="h-3 w-3" /> Add to Kanban
-                          </>
-                        )}
-                      </button>
+                  {(analysis?.suggestions || []).length === 0 ? (
+                    <div className="p-4 text-xs text-slate-500 border border-dashed border-slate-900 rounded-xl text-center">
+                      No actionable suggestions found. Click "Trigger AI Scan" to analyze your workspace.
                     </div>
-                  ))}
+                  ) : (
+                    (analysis?.suggestions || []).map((item, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-slate-900/30 border border-slate-900 text-xs text-slate-300 leading-relaxed flex items-center justify-between gap-4 hover:border-slate-800 transition">
+                        <div className="flex items-start gap-2.5">
+                          <span className="font-bold text-indigo-400 shrink-0">{idx + 1}.</span>
+                          <span>{item}</span>
+                        </div>
+                        <button
+                          onClick={() => handleAddSuggestionToKanban(item, idx)}
+                          disabled={addingSuggestionMap[idx]}
+                          className="bg-slate-800 hover:bg-slate-700/80 text-indigo-450 hover:text-indigo-300 text-[10px] font-bold py-1.5 px-3 rounded-lg transition flex items-center gap-1 shrink-0 border border-slate-800"
+                        >
+                          {addingSuggestionMap[idx] ? 'Adding...' : (
+                            <>
+                              <Plus className="h-3 w-3" /> Add to Kanban
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
               <div className="glass-panel p-5 rounded-2xl border-slate-800 shadow-md">
                 <h3 className="font-bold text-sm text-rose-400 mb-3.5 flex items-center gap-2">
-                  <Bug className="h-4.5 w-4.5 text-rose-450" /> Potential Bugs & Risks
+                  <Bug className="h-4.5 w-4.5 text-rose-450" /> Potential Bugs &amp; Risks
                 </h3>
                 <div className="flex flex-col gap-2.5">
-                  {(analysis?.bugs || []).map((item, idx) => (
-                    <div key={idx} className="p-3 rounded-xl bg-rose-500/5 border border-rose-500/10 text-xs text-rose-200 leading-relaxed flex items-start gap-2.5 hover:border-rose-500/20 transition">
-                      <span className="text-rose-400 font-bold">⚠️</span>
-                      <span>{item}</span>
+                  {(analysis?.bugs || []).length === 0 ? (
+                    <div className="p-4 text-xs text-slate-500 border border-dashed border-slate-900 rounded-xl text-center">
+                      🎉 No potential bugs or security risks detected in your workspace snippets.
                     </div>
-                  ))}
+                  ) : (
+                    (analysis?.bugs || []).map((item, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-rose-500/5 border border-rose-500/10 text-xs text-rose-200 leading-relaxed flex items-start gap-2.5 hover:border-rose-500/20 transition">
+                        <span className="text-rose-400 font-bold">⚠️</span>
+                        <span>{item}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -404,12 +407,18 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
                   <Lightbulb className="h-4.5 w-4.5 text-purple-405" /> Killer Feature Recommendations
                 </h3>
                 <div className="flex flex-col gap-2.5">
-                  {(analysis?.features || []).map((item, idx) => (
-                    <div key={idx} className="p-3 rounded-xl bg-slate-900/30 border border-slate-900 text-xs text-slate-300 leading-relaxed flex items-start gap-2.5 hover:border-slate-800 transition">
-                      <span className="text-purple-400 font-bold">✨</span>
-                      <span>{item}</span>
+                  {(analysis?.features || []).length === 0 ? (
+                    <div className="p-4 text-xs text-slate-500 border border-dashed border-slate-900 rounded-xl text-center">
+                      No feature recommendations right now.
                     </div>
-                  ))}
+                  ) : (
+                    (analysis?.features || []).map((item, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-slate-900/30 border border-slate-900 text-xs text-slate-300 leading-relaxed flex items-start gap-2.5 hover:border-slate-800 transition">
+                        <span className="text-purple-400 font-bold">✨</span>
+                        <span>{item}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -418,12 +427,18 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
                   <PlayCircle className="h-4.5 w-4.5 text-cyan-450" /> Pitch &amp; Presentation Improvements
                 </h3>
                 <div className="flex flex-col gap-2.5">
-                  {(analysis?.pitchTips || []).map((item, idx) => (
-                    <div key={idx} className="p-3 rounded-xl bg-slate-900/30 border border-slate-900 text-xs text-slate-300 leading-relaxed flex items-start gap-2.5 hover:border-slate-800 transition">
-                      <span className="text-cyan-400 font-bold">🎤</span>
-                      <span>{item}</span>
+                  {(analysis?.pitchTips || []).length === 0 ? (
+                    <div className="p-4 text-xs text-slate-500 border border-dashed border-slate-900 rounded-xl text-center">
+                      No pitch tips available yet.
                     </div>
-                  ))}
+                  ) : (
+                    (analysis?.pitchTips || []).map((item, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-slate-900/30 border border-slate-900 text-xs text-slate-300 leading-relaxed flex items-start gap-2.5 hover:border-slate-800 transition">
+                        <span className="text-cyan-400 font-bold">🎤</span>
+                        <span>{item}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

@@ -22,7 +22,6 @@ import {
 import { apiUrl } from '../utils/api';
 import TeamPolls from './TeamPolls';
 import Leaderboard from './Leaderboard';
-import ThirdPartyIntegrations from './ThirdPartyIntegrations';
 
 interface Member {
   id: string;

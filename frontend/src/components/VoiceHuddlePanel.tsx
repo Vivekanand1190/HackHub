@@ -6,11 +6,8 @@ import {
   VideoOff, 
   PhoneOff, 
   PhoneCall, 
-  ExternalLink, 
   Users, 
-  Volume2,
-  Copy,
-  Check
+  Volume2
 } from 'lucide-react';
 import { Socket } from 'socket.io-client';
 
@@ -37,12 +34,9 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(true);
   const [huddleMembers, setHuddleMembers] = useState<HuddleMember[]>([]);
-  const [copiedLink, setCopiedLink] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-
-  const jitsiRoomUrl = `https://meet.jit.si/hackhub-${teamId.replace(/[^a-zA-Z0-9]/g, '')}`;
 
   useEffect(() => {
     if (!socket) return;
@@ -125,12 +119,6 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
     socket?.emit('huddle-state-toggle', { teamId, videoOff: nextCamOff });
   };
 
-  const copyHuddleLink = () => {
-    navigator.clipboard.writeText(jitsiRoomUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
   return (
     <div className="flex flex-col h-full bg-[#0b0b0f] text-[#f5f1e6] font-mono p-4 gap-4">
       {/* Top Banner & Room Info */}
@@ -141,28 +129,8 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
             <h2 className="text-lg font-bold uppercase tracking-tight">{teamName} Voice/Video Huddle</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Real-time in-app huddle &amp; external WebRTC voice room.
+            In-app self-hosted realtime audio &amp; video huddle.
           </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={copyHuddleLink}
-            className="px-3 py-1.5 bg-black border-2 border-[#f5f1e6] text-[#f5f1e6] text-xs font-bold hover:bg-[#ffe500] hover:text-black transition flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#ff4d8d]"
-          >
-            {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-            {copiedLink ? 'Copied Link!' : 'Copy Huddle Link'}
-          </button>
-
-          <a
-            href={jitsiRoomUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-[#4d7cff] text-black border-2 border-black text-xs font-bold hover:bg-[#b8ff3c] transition flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#000]"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Open Jitsi Room
-          </a>
         </div>
       </div>
 

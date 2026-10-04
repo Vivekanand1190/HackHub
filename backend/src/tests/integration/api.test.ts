@@ -17,6 +17,16 @@ const mockPrisma = {
   codeSnippet: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+  },
+  poll: {
+    findMany: jest.fn(),
+    create: jest.fn(),
+    findUnique: jest.fn(),
+  },
+  pollVote: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
   }
 };
 
@@ -58,6 +68,9 @@ describe('Integration Tests: API Endpoints', () => {
       tasks: [],
       copilotState: JSON.stringify({ judgeEvaluations: [], readinessScore: 85 })
     });
+    if ((prisma as any).poll && (prisma as any).poll.findMany) {
+      ((prisma as any).poll.findMany as jest.Mock).mockResolvedValue([]);
+    }
     (prisma.codeSnippet.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.codeSnippet.findUnique as jest.Mock).mockResolvedValue({
       id: 'snip-1',
@@ -168,11 +181,6 @@ describe('Integration Tests: API Endpoints', () => {
       expect(res.body).toHaveProperty('leaderboard');
     });
 
-    it('should allow authenticated request to Third-Party Integrations', async () => {
-      const res = await request(app)
-        .get(`/api/teams/${teamId}/integrations`)
-        .set('Authorization', `Bearer ${validToken}`);
-      expect(res.status).toBe(200);
-    });
+
   });
 });

@@ -1,6 +1,9 @@
 import { API_BASE, apiUrl } from '../utils/api';
 import React, { useState, useEffect } from 'react';
-import Editor from '@monaco-editor/react';
+import Editor, { loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
+
+loader.config({ monaco });
 import { 
   Play, 
   Code, 
@@ -420,11 +423,11 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
               onChange={(e) => setLanguage(e.target.value)}
               className="glass-input text-[11px] py-1.5! flex-1 bg-slate-950 border-slate-800"
             >
-              <option value="javascript">JavaScript</option>
-              <option value="typescript">TypeScript</option>
-              <option value="python">Python</option>
-              <option value="html">HTML</option>
-              <option value="css">CSS</option>
+              <option value="javascript">JavaScript (Runnable)</option>
+              <option value="typescript">TypeScript (Runnable)</option>
+              <option value="python">Python (Disabled in Sandbox)</option>
+              <option value="html">HTML (Disabled in Sandbox)</option>
+              <option value="css">CSS (Disabled in Sandbox)</option>
             </select>
             <button
               type="submit"

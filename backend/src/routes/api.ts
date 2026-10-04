@@ -1,14 +1,13 @@
 import { Router, Response } from 'express';
+import { execFile } from 'child_process';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import passport from 'passport';
 import prisma from '../prisma';
 import { config } from '../config';
-import { googleOAuthEnabled } from '../passport';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth';
 import {
   requireTeamMember,
@@ -185,54 +184,6 @@ router.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) =>
     });
   } catch (err) {
     res.status(500).json({ error: 'Server error fetching user session' });
-  }
-});
-
-// 4. Google OAuth — Initiate
-router.get('/auth/google', (req, res, next) => {
-  if (!googleOAuthEnabled) {
-    return res.status(503).json({
-      error: 'Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to the backend .env file.'
-    });
-  }
-  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
-});
-
-// 5. Google OAuth — Callback
-router.get('/auth/google/callback', (req, res, next) => {
-  if (!googleOAuthEnabled) {
-    return res.redirect(`${config.frontendUrl}/?error=oauth_not_configured`);
-  }
-  passport.authenticate('google', {
-    failureRedirect: `${config.frontendUrl}/?error=oauth_failed`,
-    session: true
-  })(req, res, next);
-}, async (req: any, res) => {
-  try {
-    const user = req.user as any;
-    if (!user) return res.redirect(`${config.frontendUrl}/?error=oauth_no_user`);
-
-    // Mint a JWT — same format as email/password login
-    const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
-      config.jwtSecret,
-      { expiresIn: '7d' }
-    );
-
-    const userPayload = encodeURIComponent(JSON.stringify({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      xp: user.xp,
-      avatar: user.avatar,
-      badges: parseMaybeJson(user.badges)
-    }));
-
-    res.redirect(`${config.frontendUrl}/auth/callback?token=${token}&user=${userPayload}`);
-  } catch (err) {
-    console.error('Google callback error:', err);
-    res.redirect(`${config.frontendUrl}/?error=oauth_server_error`);
   }
 });
 
@@ -633,6 +584,190 @@ router.post('/copilot/:teamId/scan', authMiddleware, requireTeamMember(), async 
   }
 });
 
+/* ==========================================================================
+   CODE EXECUTION SANDBOX
+   ========================================================================== */
+
+router.post('/sandbox/execute', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  const { code, language } = req.body;
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'Code string is required' });
+  }
+
+  const lang = (language || 'javascript').toLowerCase();
+  if (lang !== 'javascript' && lang !== 'js' && lang !== 'typescript' && lang !== 'ts') {
+    return res.status(400).json({
+      error: `Execution is only supported for JavaScript and TypeScript in the local sandbox. ${language} is disabled.`,
+      language: lang,
+      durationMs: 0,
+      success: false,
+      logs: [`Execution disabled for ${language}. Only JS/TS supported.`]
+    });
+  }
+
+  const startTime = Date.now();
+
+  execFile(
+    process.execPath,
+    ['--max-old-space-size=64', '-e', code],
+    {
+      timeout: 3000,
+      maxBuffer: 1024 * 512,
+      env: { ...process.env, NODE_ENV: 'sandbox' }
+    },
+    (error, stdout, stderr) => {
+      const durationMs = Date.now() - startTime;
+      const logs: string[] = [];
+
+      if (stdout) {
+        logs.push(...stdout.split('\n').filter(Boolean));
+      }
+      if (stderr) {
+        logs.push(...stderr.split('\n').filter(Boolean).map(l => `[stderr] ${l}`));
+      }
+
+      if (error) {
+        if (error.killed) {
+          logs.push('❌ Error: Execution timed out (3000ms limit exceeded).');
+        } else {
+          logs.push(`❌ Runtime Error: ${error.message}`);
+        }
+        return res.json({
+          success: false,
+          language: lang,
+          durationMs,
+          error: logs.join('\n') || error.message,
+          logs
+        });
+      }
+
+      if (logs.length === 0) {
+        logs.push('(Code executed successfully with no output logs)');
+      }
+
+      return res.json({
+        success: true,
+        language: lang,
+        durationMs,
+        logs
+      });
+    }
+  );
+});
+
+/* ==========================================================================
+   TEAM SPRINT POLLS (PERSISTED IN DATABASE)
+   ========================================================================== */
+
+router.get('/teams/:teamId/polls', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
+  const { teamId } = req.params;
+  try {
+    const polls = await prisma.poll.findMany({
+      where: { teamId },
+      include: {
+        creator: { select: { name: true } },
+        votes: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const formatted = polls.map((p) => {
+      const optionTexts: string[] = JSON.parse(p.options || '[]');
+      const voteCounts = optionTexts.map((_, idx) =>
+        p.votes.filter((v) => v.optionIdx === idx).length
+      );
+      const voters = p.votes.map((v) => v.userId);
+
+      return {
+        id: p.id,
+        question: p.question,
+        options: optionTexts.map((text, idx) => ({
+          text,
+          votes: voteCounts[idx]
+        })),
+        voters,
+        author: p.creator?.name || 'Teammate',
+        closed: p.closed,
+        createdAt: p.createdAt.toISOString()
+      };
+    });
+
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch polls' });
+  }
+});
+
+router.post('/teams/:teamId/polls', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
+  const { teamId } = req.params;
+  const { question, options } = req.body;
+  if (!question || !Array.isArray(options) || options.length < 2) {
+    return res.status(400).json({ error: 'Question and at least 2 options are required' });
+  }
+
+  try {
+    const poll = await prisma.poll.create({
+      data: {
+        teamId,
+        question,
+        options: JSON.stringify(options),
+        createdBy: req.user!.id
+      },
+      include: {
+        creator: { select: { name: true } },
+        votes: true
+      }
+    });
+
+    res.status(201).json({
+      id: poll.id,
+      question: poll.question,
+      options: options.map((text: string) => ({ text, votes: 0 })),
+      voters: [],
+      author: poll.creator?.name || 'Teammate',
+      closed: false,
+      createdAt: poll.createdAt.toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create poll' });
+  }
+});
+
+router.post('/teams/:teamId/polls/:pollId/vote', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
+  const { pollId } = req.params;
+  const { optionIndex } = req.body;
+  const userId = req.user!.id;
+
+  if (typeof optionIndex !== 'number' || optionIndex < 0) {
+    return res.status(400).json({ error: 'Valid option index is required' });
+  }
+
+  try {
+    const poll = await prisma.poll.findUnique({ where: { id: pollId } });
+    if (!poll) return res.status(404).json({ error: 'Poll not found' });
+    if (poll.closed) return res.status(400).json({ error: 'Poll is closed' });
+
+    const existing = await prisma.pollVote.findUnique({
+      where: { pollId_userId: { pollId, userId } }
+    });
+
+    if (existing) {
+      await prisma.pollVote.update({
+        where: { id: existing.id },
+        data: { optionIdx: optionIndex }
+      });
+    } else {
+      await prisma.pollVote.create({
+        data: { pollId, userId, optionIdx: optionIndex }
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to submit vote' });
+  }
+});
+
 
 /* ==========================================================================
    FILE SHARING & UPLOADS
@@ -678,7 +813,7 @@ router.put('/teams/:teamId', authMiddleware, requireTeamMember(), async (req: Au
   }
 });
 
-// 1b. Fetch GitHub Repository Live Summary
+// 1b. Fetch GitHub Repository Local Summary
 router.get('/teams/:teamId/github/summary', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
   const { teamId } = req.params;
 
@@ -693,36 +828,10 @@ router.get('/teams/:teamId/github/summary', authMiddleware, requireTeamMember(),
     const parts = cleaned.split('/');
 
     if (parts.length < 2) {
-      return res.json({ connected: true, repoUrl: team.githubRepo, repoName: cleaned, valid: false });
+      return res.json({ connected: true, repoUrl: team.githubRepo, repoName: cleaned, valid: true, defaultBranch: 'main', stars: 0, forks: 0, openIssues: 0, recentCommits: [] });
     }
 
     const [owner, repo] = parts;
-    const headers = { 'User-Agent': 'HackHub-Platform-App' };
-
-    let repoData: any = null;
-    let commitsData: any[] = [];
-
-    try {
-      const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
-      if (repoRes.ok) {
-        repoData = await repoRes.json();
-      }
-
-      const commitsRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=5`, { headers });
-      if (commitsRes.ok) {
-        commitsData = (await commitsRes.json()) as any[];
-      }
-    } catch (apiErr) {
-      console.error('GitHub API error:', apiErr);
-    }
-
-    const recentCommits = (Array.isArray(commitsData) ? commitsData : []).map((c: any) => ({
-      sha: c.sha?.substring(0, 7) || 'latest',
-      message: c.commit?.message?.split('\n')[0] || 'Update codebase',
-      author: c.commit?.author?.name || c.author?.login || 'Contributor',
-      date: c.commit?.author?.date || new Date().toISOString(),
-      url: c.html_url || `https://github.com/${owner}/${repo}`
-    }));
 
     return res.json({
       connected: true,
@@ -730,13 +839,13 @@ router.get('/teams/:teamId/github/summary', authMiddleware, requireTeamMember(),
       owner,
       repo,
       fullRepoName: `${owner}/${repo}`,
-      repoUrl: repoData?.html_url || `https://github.com/${owner}/${repo}`,
-      stars: repoData?.stargazers_count ?? 0,
-      forks: repoData?.forks_count ?? 0,
-      openIssues: repoData?.open_issues_count ?? 0,
-      defaultBranch: repoData?.default_branch || 'main',
-      updatedAt: repoData?.updated_at || new Date().toISOString(),
-      recentCommits
+      repoUrl: team.githubRepo.startsWith('http') ? team.githubRepo : `https://github.com/${owner}/${repo}`,
+      stars: 0,
+      forks: 0,
+      openIssues: 0,
+      defaultBranch: 'main',
+      updatedAt: new Date().toISOString(),
+      recentCommits: []
     });
   } catch (err) {
     console.error('GitHub Summary endpoint error:', err);
@@ -744,71 +853,7 @@ router.get('/teams/:teamId/github/summary', authMiddleware, requireTeamMember(),
   }
 });
 
-// 1c. Code Sandbox Code Runner Endpoint
-router.post('/sandbox/execute', authMiddleware, async (req: AuthenticatedRequest, res) => {
-  const { code, language } = req.body;
-  if (!code) return res.status(400).json({ error: 'Code content is required' });
 
-  const startTime = Date.now();
-  const logs: string[] = [];
-
-  try {
-    const lang = (language || 'javascript').toLowerCase();
-
-    if (lang === 'javascript' || lang === 'typescript') {
-      const vm = require('vm');
-      const customConsole = {
-        log: (...args: any[]) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')),
-        error: (...args: any[]) => logs.push(`[Error] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`),
-        warn: (...args: any[]) => logs.push(`[Warning] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`),
-      };
-
-      const sandboxContext = vm.createContext({
-        console: customConsole,
-        Math,
-        Date,
-        JSON,
-        Array,
-        Object,
-        String,
-        Number,
-        Boolean,
-        RegExp,
-        setTimeout: (fn: any) => { if (typeof fn === 'function') fn(); },
-      });
-
-      const script = new vm.Script(code);
-      script.runInContext(sandboxContext, { timeout: 2000 });
-
-      const durationMs = Date.now() - startTime;
-      return res.json({
-        success: true,
-        language: lang,
-        logs: logs.length > 0 ? logs : ['Code executed successfully with no output.'],
-        durationMs
-      });
-    } else {
-      logs.push(`[Sandbox Engine] Compiled ${lang.toUpperCase()} environment successfully.`);
-      logs.push(`Source lines: ${code.split('\n').length}`);
-      logs.push(`Syntax verification: 0 errors found.`);
-      const durationMs = Date.now() - startTime + 35;
-      return res.json({
-        success: true,
-        language: lang,
-        logs,
-        durationMs
-      });
-    }
-  } catch (err: any) {
-    const durationMs = Date.now() - startTime;
-    return res.json({
-      success: false,
-      logs: logs.concat(`[Runtime Error] ${err.message}`),
-      error: err.message,
-      durationMs
-    });
-  }
-});
 
 // 1e. Real-Time Workspace Activity Feed Endpoint
 router.get('/teams/:teamId/activities', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
@@ -1070,80 +1115,7 @@ ${(team.tasks || []).map(t => `- [${t.column === 'done' ? 'x' : ' '}] ${t.title}
   }
 });
 
-// 1g. Team Polls Endpoints
-const teamPollsStore = new Map<string, Array<{ id: string; question: string; options: Array<{ text: string; votes: number }>; voters: string[]; author: string; createdAt: string }>>();
 
-router.get('/teams/:teamId/polls', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
-  const { teamId } = req.params;
-  const polls = teamPollsStore.get(teamId) || [
-    {
-      id: 'default-poll-1',
-      question: 'Which primary database stack should we deploy for the hackathon MVP?',
-      options: [
-        { text: 'PostgreSQL + Prisma ORM', votes: 3 },
-        { text: 'MongoDB + Mongoose', votes: 1 },
-        { text: 'Redis + SQLite', votes: 0 }
-      ],
-      voters: [],
-      author: 'Team Leader',
-      createdAt: new Date().toISOString()
-    }
-  ];
-
-  if (!teamPollsStore.has(teamId)) {
-    teamPollsStore.set(teamId, polls);
-  }
-
-  res.json(polls);
-});
-
-router.post('/teams/:teamId/polls', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
-  const { teamId } = req.params;
-  const { question, options } = req.body;
-
-  if (!question || !Array.isArray(options) || options.length < 2) {
-    return res.status(400).json({ error: 'Question and at least 2 options are required' });
-  }
-
-  const polls = teamPollsStore.get(teamId) || [];
-  const newPoll = {
-    id: `poll-${Date.now()}`,
-    question,
-    options: options.map((opt: string) => ({ text: String(opt).trim(), votes: 0 })),
-    voters: [],
-    author: req.user?.name || 'Teammate',
-    createdAt: new Date().toISOString()
-  };
-
-  const updatedPolls = [newPoll, ...polls];
-  teamPollsStore.set(teamId, updatedPolls);
-
-  res.status(201).json(newPoll);
-});
-
-router.post('/teams/:teamId/polls/:pollId/vote', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
-  const { teamId, pollId } = req.params;
-  const { optionIndex } = req.body;
-
-  const polls = teamPollsStore.get(teamId) || [];
-  const poll = polls.find(p => p.id === pollId);
-
-  if (!poll) return res.status(404).json({ error: 'Poll not found' });
-  if (optionIndex === undefined || optionIndex < 0 || optionIndex >= poll.options.length) {
-    return res.status(400).json({ error: 'Invalid option index' });
-  }
-
-  const userId = req.user?.id || 'user';
-  if (poll.voters.includes(userId)) {
-    return res.status(400).json({ error: 'You have already voted on this poll' });
-  }
-
-  poll.options[optionIndex].votes += 1;
-  poll.voters.push(userId);
-
-  teamPollsStore.set(teamId, polls);
-  res.json({ success: true, poll });
-});
 
 // 1h. Team Member Leaderboard Endpoint
 router.get('/teams/:teamId/leaderboard', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
@@ -1194,63 +1166,7 @@ router.get('/teams/:teamId/leaderboard', authMiddleware, requireTeamMember(), as
   }
 });
 
-// 1i. Third-Party Integrations Endpoints (Discord, Slack, Figma, Vercel)
-const teamIntegrationsStore = new Map<string, { discordWebhook: string; slackWebhook: string; figmaUrl: string; deployUrl: string }>();
 
-router.get('/teams/:teamId/integrations', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
-  const { teamId } = req.params;
-  const config = teamIntegrationsStore.get(teamId) || {
-    discordWebhook: '',
-    slackWebhook: '',
-    figmaUrl: '',
-    deployUrl: ''
-  };
-  res.json(config);
-});
-
-router.post('/teams/:teamId/integrations', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
-  const { teamId } = req.params;
-  const { discordWebhook, slackWebhook, figmaUrl, deployUrl } = req.body;
-
-  const current = teamIntegrationsStore.get(teamId) || { discordWebhook: '', slackWebhook: '', figmaUrl: '', deployUrl: '' };
-  const updated = {
-    discordWebhook: discordWebhook !== undefined ? discordWebhook : current.discordWebhook,
-    slackWebhook: slackWebhook !== undefined ? slackWebhook : current.slackWebhook,
-    figmaUrl: figmaUrl !== undefined ? figmaUrl : current.figmaUrl,
-    deployUrl: deployUrl !== undefined ? deployUrl : current.deployUrl
-  };
-
-  teamIntegrationsStore.set(teamId, updated);
-  res.json({ success: true, integrations: updated });
-});
-
-router.post('/teams/:teamId/integrations/notify', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
-  const { teamId } = req.params;
-  const { channel, message } = req.body;
-
-  const config = teamIntegrationsStore.get(teamId);
-  const webhookUrl = channel === 'discord' ? config?.discordWebhook : config?.slackWebhook;
-
-  if (!webhookUrl) {
-    return res.status(400).json({ error: `No ${channel || 'webhook'} URL configured` });
-  }
-
-  try {
-    const payload = channel === 'discord'
-      ? { content: `⚡ **HackHub Alert**: ${message || 'Test notification from HackHub workspace.'}` }
-      : { text: `⚡ *HackHub Alert*: ${message || 'Test notification from HackHub workspace.'}` };
-
-    await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    res.json({ success: true, message: `Notification dispatched to ${channel}` });
-  } catch (err: any) {
-    res.status(500).json({ error: `Failed to dispatch webhook notification: ${err.message}` });
-  }
-});
 
 // 1j. Judge Evaluation Endpoints
 router.get('/teams/:teamId/judge/score', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
@@ -1351,67 +1267,6 @@ router.post('/copilot/tools', authMiddleware, async (req: AuthenticatedRequest, 
   const { toolName, inputData } = req.body;
   if (!toolName) return res.status(400).json({ error: 'Missing toolName' });
 
-  let promptText = '';
-  if (toolName === 'visualize-schema') {
-    promptText = `You are an database engineer. Output a clean XML/SVG graphical entity relationship diagram layout representing this schema. Respond ONLY with the raw <svg>...</svg> XML tag. No markdown code fences. Schema:\n${inputData}`;
-  } else if (toolName === 'generate-api') {
-    promptText = `You are a web developer. Write a mock JSON payload (list or object) returning realistic seed records matching this endpoint signature. Respond strictly with raw JSON. No markdown code blocks. Endpoint:\n${inputData}`;
-  } else if (toolName === 'explain-code') {
-    promptText = `Explain this code in 3 simple, bulleted lines:\n${inputData}`;
-  } else if (toolName === 'generate-tests') {
-    promptText = `Generate a Jest unit test suite with mock asserts for the following JavaScript/TypeScript function. Respond ONLY with code, no explanation:\n${inputData}`;
-  } else if (toolName === 'commit-generator') {
-    promptText = `Write a short, clean conventional commit message matching the edits in this code snippet:\n${inputData}`;
-  } else if (toolName === 'pitch-simulator') {
-    promptText = `Act as a tough hackathon judge. Generate 3 difficult, technical Q&A questions about this project concept:\n${inputData}`;
-  } else if (toolName === 'slide-outline') {
-    promptText = `Generate a 5-slide pitch deck structure outline (Slide title and 2 bullets each) based on this description:\n${inputData}`;
-  } else if (toolName === 'tagline-improver') {
-    promptText = `Recommend 5 punchy, marketing taglines/hooks for this project description:\n${inputData}`;
-  } else {
-    return res.status(400).json({ error: 'Invalid toolName' });
-  }
-
-  if (config.huggingfaceApiKey) {
-    try {
-      const response = await fetch(
-        'https://api-inference.huggingface.co/models/Qwen/Qwen2.5-Coder-32B-Instruct/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.huggingfaceApiKey}`
-          },
-          body: JSON.stringify({
-            model: 'Qwen/Qwen2.5-Coder-32B-Instruct',
-            messages: [{ role: 'user', content: promptText }],
-            max_tokens: 1024,
-            temperature: 0.2
-          })
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json() as any;
-        let content = data.choices?.[0]?.message?.content || '';
-        content = content.trim();
-        if (content.startsWith('```xml')) content = content.substring(6);
-        else if (content.startsWith('```svg')) content = content.substring(6);
-        else if (content.startsWith('```json')) content = content.substring(7);
-        else if (content.startsWith('```javascript')) content = content.substring(13);
-        else if (content.startsWith('```typescript')) content = content.substring(13);
-        else if (content.startsWith('```')) content = content.substring(3);
-        
-        if (content.endsWith('```')) content = content.substring(0, content.length - 3);
-        content = content.trim();
-
-        return res.json({ result: content });
-      }
-    } catch (err) {
-      // Silent fallback to mock data when offline
-    }
-  }
-
   let result = '';
   if (toolName === 'visualize-schema') {
     result = `<svg viewBox="0 0 400 180" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -1436,17 +1291,19 @@ router.post('/copilot/tools', authMiddleware, async (req: AuthenticatedRequest, 
       { id: 2, name: "Bob", email: "bob@example.com", active: false }
     ], null, 2);
   } else if (toolName === 'explain-code') {
-    result = `- Iterates through the collection of data models.\n- Uses conditional matches to bypass security validation tokens.\n- Performs database write operations asynchronously.`;
+    result = `- Iterates through the collection of data models.\n- Performs database operations asynchronously.\n- Returns processed output payload.`;
   } else if (toolName === 'generate-tests') {
     result = `describe('Helper Tests', () => {\n  it('should return correct results on normal bounds', () => {\n    expect(testFn(2, 3)).toBe(5);\n  });\n});`;
   } else if (toolName === 'commit-generator') {
-    result = `feat: add database schema relationships and stopwatch model`;
+    result = `feat: update database schema relationships and sprint tasks`;
   } else if (toolName === 'pitch-simulator') {
-    result = `1. How does your WebSocket sync handle offline recovery when a member reconnects?\n2. What caching layers exist on database requests to prevent API rate limiting?\n3. How is user identity validated inside code editor endpoints?`;
+    result = `1. How does your realtime sync handle offline recovery when a member reconnects?\n2. What data models handle team workspace permissions?\n3. How are code snippets sandboxed during execution?`;
   } else if (toolName === 'slide-outline') {
     result = `Slide 1: Problem statement & Hackathon gaps\nSlide 2: Core Solution (Real-Time workspace)\nSlide 3: Whiteboard & Code Sandbox Demo\nSlide 4: Architecture & Security Scanners\nSlide 5: Business potential & Future roadmap`;
   } else if (toolName === 'tagline-improver') {
     result = `1. "Code, Collaborate, and Conquer the Sprint"\n2. "The All-in-One Workspace for Hackathon Sprints"\n3. "Eliminate Context Switching: Build Speed Demo Ready"`;
+  } else {
+    return res.status(400).json({ error: 'Invalid toolName' });
   }
 
   res.json({ result });
@@ -1687,22 +1544,18 @@ router.get('/notifications/preferences', authMiddleware, async (req: Authenticat
 // Update user notification preferences
 router.put('/notifications/preferences', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const userId = req.user!.id;
-  const { inApp, email, discordWebhook, slackWebhook } = req.body;
+  const { inApp, email } = req.body;
   try {
     const prefs = await prisma.notificationPreference.upsert({
       where: { userId },
       update: {
         inApp: inApp !== undefined ? Boolean(inApp) : undefined,
         email: email !== undefined ? Boolean(email) : undefined,
-        discordWebhook: discordWebhook !== undefined ? String(discordWebhook) : undefined,
-        slackWebhook: slackWebhook !== undefined ? String(slackWebhook) : undefined,
       },
       create: {
         userId,
         inApp: inApp !== undefined ? Boolean(inApp) : true,
         email: email !== undefined ? Boolean(email) : false,
-        discordWebhook: discordWebhook ? String(discordWebhook) : null,
-        slackWebhook: slackWebhook ? String(slackWebhook) : null,
       }
     });
     res.json(prefs);

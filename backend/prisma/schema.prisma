@@ -28,6 +28,8 @@ model User {
   notifications Notification[]
   notificationPreference NotificationPreference?
   organizedEvents Event[]       @relation("EventOrganizer")
+  pollVotes    PollVote[]
+  pollsCreated Poll[]        @relation("UserCreatedPolls")
 }
 
 model Team {
@@ -43,6 +45,7 @@ model Team {
   messages       Message[]
   snippets       CodeSnippet[]
   documents      Document[]
+  polls          Poll[]
   whiteboardData  String        @default("[]") // Array of drawing actions/paths (JSON string)
   copilotState    String        @default("{}") // Stores the latest AI Copilot recommendations and score (JSON string)
   milestones      String        @default("[]") // Project milestones [{ id, title, done }] (JSON string)
@@ -125,8 +128,6 @@ model NotificationPreference {
   user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   inApp          Boolean @default(true)
   email          Boolean @default(false)
-  discordWebhook String?
-  slackWebhook   String?
 }
 
 model Event {
@@ -197,6 +198,31 @@ model ScheduleItem {
   endTime        DateTime
   locationOrLink String   @default("")
   createdAt      DateTime @default(now())
+}
+
+model Poll {
+  id        String     @id @default(uuid())
+  teamId    String
+  team      Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  question  String
+  options   String     // JSON array of strings e.g. ["Option A", "Option B"]
+  closed    Boolean    @default(false)
+  createdBy String
+  creator   User       @relation("UserCreatedPolls", fields: [createdBy], references: [id], onDelete: Cascade)
+  votes     PollVote[]
+  createdAt DateTime   @default(now())
+}
+
+model PollVote {
+  id        String   @id @default(uuid())
+  pollId    String
+  poll      Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  optionIdx Int
+  createdAt DateTime @default(now())
+
+  @@unique([pollId, userId])
 }
 
 

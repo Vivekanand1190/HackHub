@@ -91,6 +91,9 @@
 }
 
 :root {
+  --font-space-grotesk: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  --font-archivo-black: "Archivo Black", impact, sans-serif;
+  --font-jetbrains-mono: "JetBrains Mono", ui-monospace, monospace;
   --paper: #0b0b0f;
   --surface: #16161d;
   --ink: #f5f1e6;

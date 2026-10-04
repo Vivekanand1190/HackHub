@@ -19,8 +19,6 @@ export interface NotificationItem {
 export interface NotificationPreference {
   inApp: boolean;
   email: boolean;
-  discordWebhook?: string;
-  slackWebhook?: string;
 }
 
 interface NotificationCenterProps {
@@ -34,9 +32,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [preferences, setPreferences] = useState<NotificationPreference>({
     inApp: true,
-    email: false,
-    discordWebhook: '',
-    slackWebhook: ''
+    email: false
   });
   const [loading, setLoading] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
@@ -68,9 +64,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
         const data = await res.json();
         setPreferences({
           inApp: data.inApp ?? true,
-          email: data.email ?? false,
-          discordWebhook: data.discordWebhook || '',
-          slackWebhook: data.slackWebhook || ''
+          email: data.email ?? false
         });
       }
     } catch (err) {
@@ -314,28 +308,6 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
                   className="accent-[#ffe500] h-4 w-4"
                 />
               </label>
-
-              <div className="flex flex-col gap-1 mt-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Discord Webhook URL</label>
-                <input
-                  type="url"
-                  value={preferences.discordWebhook}
-                  onChange={(e) => setPreferences(prev => ({ ...prev, discordWebhook: e.target.value }))}
-                  placeholder="https://discord.com/api/webhooks/..."
-                  className="bg-black text-white border border-slate-700 p-2 text-xs focus:outline-none focus:border-[#ffe500]"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Slack Webhook URL</label>
-                <input
-                  type="url"
-                  value={preferences.slackWebhook}
-                  onChange={(e) => setPreferences(prev => ({ ...prev, slackWebhook: e.target.value }))}
-                  placeholder="https://hooks.slack.com/services/..."
-                  className="bg-black text-white border border-slate-700 p-2 text-xs focus:outline-none focus:border-[#ffe500]"
-                />
-              </div>
 
               <button
                 type="submit"

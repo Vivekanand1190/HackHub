@@ -34,12 +34,6 @@ function resolveJwtSecret(): string {
   return 'hackhub-development-only-jwt-secret';
 }
 
-function resolveSessionSecret(): string {
-  const secret = process.env.SESSION_SECRET;
-  if (secret && secret.trim().length > 0) return secret;
-  return 'hackhub-development-only-session-secret';
-}
-
 /**
  * Allowed browser origins for CORS. Prefer an explicit CORS_ORIGINS list;
  * otherwise fall back to the single FRONTEND_URL.
@@ -53,21 +47,9 @@ export const config = {
   nodeEnv,
   port: process.env.PORT || '8888',
   jwtSecret: resolveJwtSecret(),
-  sessionSecret: resolveSessionSecret(),
   databaseUrl: process.env.DATABASE_URL || '',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   corsOrigins,
-  google: {
-    clientId: process.env.GOOGLE_CLIENT_ID || '',
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:8888/api/auth/google/callback',
-  },
-  huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || '',
-  // LiveKit (managed SFU) — used to mint short-lived call tokens. The secret
-  // must never leave the server.
-  livekit: {
-    url: process.env.LIVEKIT_URL || '',
-    apiKey: process.env.LIVEKIT_API_KEY || '',
-    apiSecret: process.env.LIVEKIT_API_SECRET || '',
-  },
 };
+
+

@@ -4,13 +4,10 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import session from 'express-session';
 import path from 'path';
 import fs from 'fs';
 import { config } from './config';
-import passportSetup from './passport';
 import { apiRouter } from './routes/api';
-import { callRouter } from './routes/call';
 import { registerSocketHandlers } from './sockets/socket.handler';
 
 const app = express();
@@ -39,20 +36,6 @@ app.use(
 
 app.use(express.json({ limit: '2mb' }));
 
-// Session — only used during the Google OAuth handshake, NOT for app auth
-app.use(
-  session({
-    secret: config.sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: config.nodeEnv === 'production', maxAge: 5 * 60 * 1000 },
-  })
-);
-
-// Passport (must come after session)
-app.use(passportSetup.initialize());
-app.use(passportSetup.session());
-
 // Serve uploads folder as static
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -74,9 +57,6 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Mount main api router
 app.use('/api', apiRouter);
-
-// Live team-call token endpoint (LiveKit)
-app.use('/api', callRouter);
 
 // Initialize Socket.io Server
 const io = new Server(server, {
