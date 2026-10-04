@@ -401,7 +401,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
 
           {/* Local Presenter Configuration */}
           <div className="flex flex-col gap-3">
-            <span className="text-[10px] uppercase font-bold text-slate-500">Local Share settings</span>
+            <span className="text-[10px] uppercase font-bold text-slate-500">Local Share Settings</span>
             
             <div className="flex gap-2">
               <button 
@@ -599,7 +599,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
                         <div className="text-slate-500 leading-none select-none">2 | import {'{'} Socket {'}'} from 'socket.io-client';</div>
                         <div className="leading-none"><span className="text-purple-400">export default function</span> <span className="text-indigo-300 font-bold">HackhubApp</span>() {'{'}</div>
                         <div className="leading-none pl-3"><span className="text-purple-400">const</span> [status, setStatus] = useState(<span className="text-emerald-400">'live'</span>);</div>
-                        <div className="leading-none pl-3"><span className="text-slate-500 select-none">/* Syncing client workspaces */</span></div>
+                        <div className="leading-none pl-3"><span className="text-slate-500 select-none">{'/* Syncing client workspaces */'}</span></div>
                         <div className="leading-none pl-3"><span className="text-purple-400">return</span> (</div>
                         <div className="leading-none pl-6 text-indigo-400">&lt;<span className="text-purple-400">div</span> className=<span className="text-emerald-400">"workspace-overlay"</span>&gt;</div>
                         <div className="leading-none pl-9 text-slate-400">&lt;<span className="text-indigo-400 font-bold">WorkspaceMeet</span> /&gt;</div>
