@@ -102,7 +102,7 @@ export default function WorkspacePage() {
   const [callCount, setCallCount] = useState(0);
 
   useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCmdPaletteOpen(prev => !prev);
