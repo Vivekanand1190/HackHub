@@ -84,6 +84,7 @@ model Message {
   attachment String?   // { filename, url, size, mimetype } (JSON string)
   reactions  String    @default("{}") // JSON map: { "👍": ["User1", "User2"] }
   editedAt   DateTime?
+  pinned     Boolean   @default(false)
   timestamp  DateTime  @default(now())
 }
 
