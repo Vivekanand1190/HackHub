@@ -25,6 +25,9 @@ model User {
   tasks        Task[]
   messages     Message[]
   snippets     CodeSnippet[]
+  notifications Notification[]
+  notificationPreference NotificationPreference?
+  organizedEvents Event[]       @relation("EventOrganizer")
 }
 
 model Team {
@@ -34,6 +37,8 @@ model Team {
   leaderId       String
   leader         User          @relation("TeamLeader", fields: [leaderId], references: [id])
   members        User[]        @relation("TeamMembers")
+  eventId        String?
+  event          Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
   tasks          Task[]
   messages       Message[]
   snippets       CodeSnippet[]
@@ -64,15 +69,19 @@ model Task {
 }
 
 model Message {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   text       String
-  system     Boolean  @default(false)
+  system     Boolean   @default(false)
+  channel    String    @default("general")
+  parentId   String?
   userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
+  user       User?     @relation(fields: [userId], references: [id])
   teamId     String
-  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  attachment String?  // { filename, url, size, mimetype } (JSON string)
-  timestamp  DateTime @default(now())
+  team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  attachment String?   // { filename, url, size, mimetype } (JSON string)
+  reactions  String    @default("{}") // JSON map: { "👍": ["User1", "User2"] }
+  editedAt   DateTime?
+  timestamp  DateTime  @default(now())
 }
 
 model CodeSnippet {
@@ -96,3 +105,98 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // mention, task_assignment, deadline, judge_score, huddle_invite, announcement
+  actorName String?
+  title     String
+  body      String
+  targetUrl String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model NotificationPreference {
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inApp          Boolean @default(true)
+  email          Boolean @default(false)
+  discordWebhook String?
+  slackWebhook   String?
+}
+
+model Event {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String         @unique
+  description String         @default("")
+  banner      String?
+  startDate   DateTime
+  endDate     DateTime
+  status      String         @default("draft") // draft | live | ended
+  visibility  String         @default("public") // public | private
+  organizerId String
+  organizer   User           @relation("EventOrganizer", fields: [organizerId], references: [id])
+  tracks      Track[]
+  prizes      Prize[]
+  sponsors    Sponsor[]
+  schedule    ScheduleItem[]
+  teams       Team[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Track {
+  id              String   @id @default(uuid())
+  eventId         String
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name            String
+  description     String   @default("")
+  judgingCriteria String   @default("[]") // JSON string [{ name, weight }]
+  prizes          Prize[]
+  createdAt       DateTime @default(now())
+}
+
+model Sponsor {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  logo      String?
+  url       String?
+  tier      String   @default("silver") // title | gold | silver
+  prizes    Prize[]
+  createdAt DateTime @default(now())
+}
+
+model Prize {
+  id          String   @id @default(uuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  trackId     String?
+  track       Track?   @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  sponsorId   String?
+  sponsor     Sponsor? @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+  title       String
+  description String   @default("")
+  value       String   @default("")
+  createdAt   DateTime @default(now())
+}
+
+model ScheduleItem {
+  id             String   @id @default(uuid())
+  eventId        String
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title          String
+  type           String   @default("workshop") // workshop | talk | ceremony | deadline
+  startTime      DateTime
+  endTime        DateTime
+  locationOrLink String   @default("")
+  createdAt      DateTime @default(now())
+}
+
+

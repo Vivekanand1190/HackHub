@@ -8,6 +8,7 @@ interface UserPresence {
   name: string;
   role: string;
   socketId: string;
+  color?: string;
 }
 
 interface AuthedUser {
@@ -15,6 +16,28 @@ interface AuthedUser {
   email: string;
   name: string;
   role: string;
+}
+
+interface HuddleMember {
+  socketId: string;
+  userId: string;
+  name: string;
+  role: string;
+  color: string;
+  audioMuted: boolean;
+  videoOff: boolean;
+  isSpeaking: boolean;
+}
+
+const ACCENT_COLORS = ['#ffe500', '#ff4d8d', '#4d7cff', '#b8ff3c', '#a78bfa', '#ff9f43', '#00d2d3', '#ff6b6b'];
+
+function getUserColor(userId: string): string {
+  if (!userId) return ACCENT_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return ACCENT_COLORS[Math.abs(hash) % ACCENT_COLORS.length];
 }
 
 // In-memory active presence map: teamId -> Map(socketId -> UserPresence)
@@ -25,6 +48,9 @@ const activePresenters = new Map<string, { socketId: string; username: string }>
 
 // Team countdown timers: teamId -> { endTime, running, duration }
 const activeTimers = new Map<string, { endTime: number | null; running: boolean; duration: number }>();
+
+// Team voice/video huddle presence: teamId -> Map(socketId -> HuddleMember)
+const activeHuddles = new Map<string, Map<string, HuddleMember>>();
 
 async function isTeamMember(userId: string, teamId: string): Promise<boolean> {
   const team = await prisma.team.findFirst({
@@ -39,7 +65,6 @@ async function isTeamMember(userId: string, teamId: string): Promise<boolean> {
 
 export function registerSocketHandlers(io: Server) {
   // Authenticate every connection with the same JWT the REST API uses.
-  // Identity is derived server-side from the token — never trusted from the client.
   io.use((socket: Socket, next) => {
     try {
       const header = socket.handshake.headers.authorization;
@@ -62,7 +87,12 @@ export function registerSocketHandlers(io: Server) {
 
   io.on('connection', (socket: Socket) => {
     const user = socket.data.user as AuthedUser;
-    console.log(`[Socket] New connection: ${socket.id} (${user?.name || 'unknown'})`);
+    if (!user) {
+      socket.disconnect();
+      return;
+    }
+
+    console.log(`[Socket] New connection: ${socket.id} (${user.name})`);
 
     // Only allow events scoped to the room this socket actually joined.
     const inTeamRoom = (teamId?: string) => !!teamId && socket.data.teamId === teamId;
@@ -94,6 +124,7 @@ export function registerSocketHandlers(io: Server) {
         name: user.name,
         role: user.role,
         socketId: socket.id,
+        color: getUserColor(user.id),
       });
 
       // Broadcast updated member list to the team
@@ -119,10 +150,10 @@ export function registerSocketHandlers(io: Server) {
       });
     });
 
-    // Chat Message
+    // Chat Message (including threaded replies and @mention notifications)
     socket.on('chat-message', async (data) => {
-      const { teamId, text, attachment } = data || {};
-      if (!inTeamRoom(teamId)) return;
+      const { teamId, text, attachment, parentId, channel } = data || {};
+      if (!inTeamRoom(teamId) || !text) return;
 
       try {
         const message = (await prisma.message.create({
@@ -130,7 +161,8 @@ export function registerSocketHandlers(io: Server) {
             text,
             userId: user.id,
             teamId,
-            // The column is a JSON string — normalise objects before storing.
+            channel: channel || 'general',
+            parentId: parentId || null,
             attachment:
               attachment === undefined || attachment === null
                 ? null
@@ -145,14 +177,100 @@ export function registerSocketHandlers(io: Server) {
           id: message.id,
           text: message.text,
           system: false,
+          channel: message.channel || 'general',
+          parentId: message.parentId,
           userId: message.userId,
           user: message.user ? { name: message.user.name, role: message.user.role } : null,
           attachment: message.attachment ? JSON.parse(message.attachment) : null,
+          reactions: {},
           timestamp: message.timestamp.toISOString(),
         });
+
+        // Trigger @mention notifications if text contains @UserName
+        const mentionMatches = text.match(/@([A-Za-z0-9_]+)/g);
+        if (mentionMatches && mentionMatches.length > 0) {
+          const mentionedNames = mentionMatches.map((m: string) => m.slice(1));
+          const team = await prisma.team.findUnique({
+            where: { id: teamId },
+            include: { members: true, leader: true }
+          });
+
+          if (team) {
+            const allMembers = [team.leader, ...team.members];
+            for (const member of allMembers) {
+              if (member.id !== user.id && mentionedNames.some((name: string) => name.toLowerCase() === member.name.toLowerCase())) {
+                const notif = await prisma.notification.create({
+                  data: {
+                    userId: member.id,
+                    type: 'mention',
+                    actorName: user.name,
+                    title: `Mentioned by ${user.name}`,
+                    body: `${user.name}: "${text.slice(0, 80)}"`,
+                    targetUrl: `/workspace/${teamId}`,
+                  }
+                });
+                io.to(teamId).emit('notification:new', notif);
+              }
+            }
+          }
+        }
       } catch (err) {
         console.error('[Socket] Chat error:', err);
       }
+    });
+
+    // Chat Edit
+    socket.on('chat-edit', async (data) => {
+      const { teamId, messageId, text } = data || {};
+      if (!inTeamRoom(teamId) || !messageId || !text) return;
+
+      try {
+        const existing = await prisma.message.findUnique({ where: { id: messageId } });
+        if (existing && (existing.userId === user.id || user.role === 'Leader')) {
+          const updated = await prisma.message.update({
+            where: { id: messageId },
+            data: { text, editedAt: new Date() },
+          });
+
+          io.to(teamId).emit('chat-edit', {
+            messageId,
+            text: updated.text,
+            editedAt: updated.editedAt?.toISOString(),
+          });
+        }
+      } catch (err) {
+        console.error('[Socket] Chat edit error:', err);
+      }
+    });
+
+    // Chat Delete
+    socket.on('chat-delete', async (data) => {
+      const { teamId, messageId } = data || {};
+      if (!inTeamRoom(teamId) || !messageId) return;
+
+      try {
+        const existing = await prisma.message.findUnique({ where: { id: messageId } });
+        if (existing && (existing.userId === user.id || user.role === 'Leader')) {
+          await prisma.message.delete({ where: { id: messageId } });
+          io.to(teamId).emit('chat-delete', { messageId });
+        }
+      } catch (err) {
+        console.error('[Socket] Chat delete error:', err);
+      }
+    });
+
+    // Chat Reaction
+    socket.on('chat-reaction', (data) => {
+      const { teamId, messageId, emoji, userName } = data || {};
+      if (!inTeamRoom(teamId)) return;
+      io.to(teamId).emit('chat-reaction', { messageId, emoji, userName });
+    });
+
+    // Chat Pin / Unpin
+    socket.on('chat-pin', (data) => {
+      const { teamId, messageId, isPinned, text, author } = data || {};
+      if (!inTeamRoom(teamId)) return;
+      io.to(teamId).emit('chat-pin', { messageId, isPinned, text, author });
     });
 
     // Monaco Code Update
@@ -160,7 +278,6 @@ export function registerSocketHandlers(io: Server) {
       const { teamId, snippetId, code } = data || {};
       if (!inTeamRoom(teamId)) return;
 
-      // Broadcast changes to other members
       socket.to(teamId).emit('code-update', { snippetId, code });
     });
 
@@ -169,61 +286,85 @@ export function registerSocketHandlers(io: Server) {
       const { teamId, documentId, title, content } = data || {};
       if (!inTeamRoom(teamId)) return;
 
-      // Broadcast changes to other members
       socket.to(teamId).emit('document-update', { documentId, title, content });
     });
 
-    // Cursor Presence Update
+    // Cursor Presence Update (Legacy & Code Editor)
     socket.on('cursor-update', (data) => {
-      const { teamId, cursor } = data || {}; // { lineNumber, column }
+      const { teamId, cursor } = data || {};
       if (!inTeamRoom(teamId)) return;
 
       socket.to(teamId).emit('cursor-update', {
         socketId: socket.id,
         userId: user.id,
         name: user.name,
+        color: getUserColor(user.id),
         cursor,
+      });
+    });
+
+    // Realtime Multi-User Cursor & Selection Broadcast
+    socket.on('cursor-move', (data) => {
+      const { teamId, target, x, y, line, col, selection } = data || {};
+      if (!inTeamRoom(teamId)) return;
+
+      socket.to(teamId).emit('cursor-move', {
+        socketId: socket.id,
+        userId: user.id,
+        name: user.name,
+        color: getUserColor(user.id),
+        target: target || 'whiteboard',
+        x,
+        y,
+        line,
+        col,
+        selection,
+      });
+    });
+
+    socket.on('cursor-leave', (data) => {
+      const { teamId, target } = data || {};
+      if (!inTeamRoom(teamId)) return;
+
+      socket.to(teamId).emit('cursor-remove', {
+        socketId: socket.id,
+        userId: user.id,
+        target,
       });
     });
 
     // Canvas Draw actions
     socket.on('draw-action', async (data) => {
       const { teamId, action } = data || {};
-      if (!inTeamRoom(teamId)) return;
+      if (!inTeamRoom(teamId) || !action) return;
 
-      // Broadcast draw action (draw path, square, sticky, etc.) to others
       socket.to(teamId).emit('draw-action', action);
 
-      // Persist in database
       try {
         const team = await prisma.team.findUnique({ where: { id: teamId } });
         if (team) {
           const currentActions = JSON.parse(team.whiteboardData || '[]');
 
           if (action.type === 'sticky-move') {
-            // Find the sticky and update its coordinates
             const idx = currentActions.findIndex((a: any) => a.id === action.id);
             if (idx !== -1) {
               currentActions[idx].x = action.x;
               currentActions[idx].y = action.y;
             }
           } else if (action.type === 'sticky-edit') {
-            // Find the sticky and update text/color
             const idx = currentActions.findIndex((a: any) => a.id === action.id);
             if (idx !== -1) {
               if (action.text !== undefined) currentActions[idx].text = action.text;
               if (action.color !== undefined) currentActions[idx].color = action.color;
             }
           } else if (action.type === 'sticky-delete') {
-            // Find and remove the sticky
             const idx = currentActions.findIndex((a: any) => a.id === action.id);
             if (idx !== -1) {
               currentActions.splice(idx, 1);
             }
           } else if (action.type === 'laser') {
-            // Transient laser pointers are not persisted in the database
+            // Transient laser pointers are not persisted
           } else {
-            // Standard action, add to list
             currentActions.push(action);
           }
 
@@ -258,14 +399,13 @@ export function registerSocketHandlers(io: Server) {
       const { teamId } = data || {};
       if (!inTeamRoom(teamId)) return;
 
-      // Notify clients to refresh tasks
       io.to(teamId).emit('task-update');
     });
 
     // Team Timer Management
     socket.on('timer-start', (data) => {
       const { teamId, durationMs } = data || {};
-      if (!inTeamRoom(teamId)) return;
+      if (!inTeamRoom(teamId) || !durationMs) return;
 
       const timerState = {
         endTime: Date.now() + durationMs,
@@ -312,15 +452,13 @@ export function registerSocketHandlers(io: Server) {
       if (!inTeamRoom(teamId)) return;
 
       if (to) {
-        // Direct target signal relay
         io.to(to).emit('webrtc-signal', { signal, from: socket.id });
       } else {
-        // Broadcast signaling
         socket.to(teamId).emit('webrtc-signal', { signal, from: socket.id });
       }
     });
 
-    // Remote Control Relay Events (targeted at a specific socket, not a room)
+    // Remote Control Relay Events
     socket.on('remote-control-request', (data) => {
       const { to, fromName } = data || {};
       if (!to) return;
@@ -345,11 +483,81 @@ export function registerSocketHandlers(io: Server) {
       io.to(to).emit('remote-control-input', { from: socket.id, inputType, eventData });
     });
 
+    // Voice / Video Huddle Handlers
+    socket.on('huddle-join', (data) => {
+      const { teamId, audioMuted, videoOff } = data || {};
+      if (!inTeamRoom(teamId)) return;
+
+      if (!activeHuddles.has(teamId)) {
+        activeHuddles.set(teamId, new Map());
+      }
+      activeHuddles.get(teamId)!.set(socket.id, {
+        socketId: socket.id,
+        userId: user.id,
+        name: user.name,
+        role: user.role,
+        color: getUserColor(user.id),
+        audioMuted: !!audioMuted,
+        videoOff: !!videoOff,
+        isSpeaking: false,
+      });
+
+      const members = Array.from(activeHuddles.get(teamId)!.values());
+      io.to(teamId).emit('huddle-update', members);
+
+      socket.to(teamId).emit('chat-message', {
+        id: `sys-${Date.now()}`,
+        text: `🎧 ${user.name} joined the voice/video huddle.`,
+        system: true,
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    socket.on('huddle-state-toggle', (data) => {
+      const { teamId, audioMuted, videoOff, isSpeaking } = data || {};
+      if (!inTeamRoom(teamId)) return;
+
+      if (activeHuddles.has(teamId) && activeHuddles.get(teamId)!.has(socket.id)) {
+        const member = activeHuddles.get(teamId)!.get(socket.id)!;
+        if (audioMuted !== undefined) member.audioMuted = audioMuted;
+        if (videoOff !== undefined) member.videoOff = videoOff;
+        if (isSpeaking !== undefined) member.isSpeaking = isSpeaking;
+
+        const members = Array.from(activeHuddles.get(teamId)!.values());
+        io.to(teamId).emit('huddle-update', members);
+      }
+    });
+
+    socket.on('huddle-leave', (data) => {
+      const { teamId } = data || {};
+      if (!inTeamRoom(teamId)) return;
+
+      if (activeHuddles.has(teamId)) {
+        const huddleMap = activeHuddles.get(teamId)!;
+        huddleMap.delete(socket.id);
+        if (huddleMap.size === 0) {
+          activeHuddles.delete(teamId);
+        }
+        const members = Array.from(activeHuddles.get(teamId)?.values() || []);
+        io.to(teamId).emit('huddle-update', members);
+      }
+    });
+
     // Disconnect Handler
     socket.on('disconnect', () => {
       const { teamId } = socket.data;
       const name = user?.name;
       console.log(`[Socket] Disconnected: ${socket.id} (${name || 'unknown'})`);
+
+      if (teamId && activeHuddles.has(teamId)) {
+        const huddleMap = activeHuddles.get(teamId)!;
+        huddleMap.delete(socket.id);
+        if (huddleMap.size === 0) {
+          activeHuddles.delete(teamId);
+        } else {
+          io.to(teamId).emit('huddle-update', Array.from(huddleMap.values()));
+        }
+      }
 
       if (teamId && activePresence.has(teamId)) {
         const presenceMap = activePresence.get(teamId)!;
@@ -358,17 +566,14 @@ export function registerSocketHandlers(io: Server) {
         if (presenceMap.size === 0) {
           activePresence.delete(teamId);
         } else {
-          // Broadcast updated presence list
           io.to(teamId).emit('members-update', Array.from(presenceMap.values()));
         }
 
-        // Check if user was the presenter
         if (activePresenters.has(teamId) && activePresenters.get(teamId)!.socketId === socket.id) {
           activePresenters.delete(teamId);
           io.to(teamId).emit('screenshare-stop');
         }
 
-        // Broadcast leave message
         io.to(teamId).emit('chat-message', {
           id: `sys-${Date.now()}`,
           text: `${name || 'A user'} has left the workspace.`,

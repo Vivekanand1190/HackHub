@@ -53,7 +53,7 @@ function CallbackHandler() {
   }, [searchParams, router]);
 
   return (
-    <div className="min-h-screen bg-[#090d16] flex items-center justify-center">
+    <div className="min-h-screen bg-[#0b0b0f] flex items-center justify-center">
       <div className="text-center space-y-6">
         {/* Animated Logo */}
         <div className="relative mx-auto w-20 h-20">
@@ -125,7 +125,7 @@ function CallbackHandler() {
 export default function AuthCallbackPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#090d16] flex items-center justify-center">
+      <div className="min-h-screen bg-[#0b0b0f] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     }>

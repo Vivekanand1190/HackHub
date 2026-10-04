@@ -25,9 +25,12 @@ import {
   Check,
   Menu,
   X,
-  FileText
+  FileText,
+  Search,
+  Headphones
 } from 'lucide-react';
 import { getSocket, disconnectSocket } from '../../../utils/socket';
+import { apiUrl } from '../../../utils/api';
 import WorkspaceDashboard from '../../../components/WorkspaceDashboard';
 import ChatWindow from '../../../components/ChatWindow';
 import CodeEditor from '../../../components/CodeEditor';
@@ -37,6 +40,10 @@ import CopilotPanel from '../../../components/CopilotPanel';
 import ScreenSharePanel from '../../../components/ScreenSharePanel';
 import FileVault from '../../../components/FileVault';
 import CollaborativeScratchpad from '../../../components/CollaborativeScratchpad';
+import CommandPalette from '../../../components/CommandPalette';
+import JudgeView from '../../../components/JudgeView';
+import VoiceHuddlePanel from '@/components/VoiceHuddlePanel';
+import NotificationCenter from '@/components/NotificationCenter';
 
 export default function WorkspacePage() {
   const params = useParams();
@@ -45,7 +52,8 @@ export default function WorkspacePage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'chat' | 'editor' | 'whiteboard' | 'tasks' | 'copilot' | 'screenshare' | 'files' | 'notes'>('dashboard');
+  type TabType = 'dashboard' | 'chat' | 'editor' | 'whiteboard' | 'tasks' | 'copilot' | 'screenshare' | 'files' | 'notes' | 'judge' | 'huddle';
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
   // Session user details
   const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
@@ -88,6 +96,19 @@ export default function WorkspacePage() {
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+  const [huddleCount, setHuddleCount] = useState(0);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCmdPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   useEffect(() => {
     // 1. Fetch user details from localStorage
@@ -105,7 +126,7 @@ export default function WorkspacePage() {
     // 2. Fetch initial Workspace details
     const fetchWorkspace = async () => {
       try {
-        const res = await fetch(`http://localhost:8888/api/teams/${teamId}/workspace`, {
+        const res = await fetch(apiUrl(`/api/teams/${teamId}/workspace`), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -148,13 +169,17 @@ export default function WorkspacePage() {
           setOnlineMembers(list);
         });
 
+        s.on('huddle-update', (list: any[]) => {
+          setHuddleCount((list || []).length);
+        });
+
         s.on('timer-sync', (timer: any) => {
           setTimerState(timer);
         });
 
         // Relativize dynamic data refreshes
         s.on('task-update', async () => {
-          const r = await fetch(`http://localhost:8888/api/teams/${teamId}/workspace`, {
+          const r = await fetch(apiUrl(`/api/teams/${teamId}/workspace`), {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (r.ok) {
@@ -239,7 +264,7 @@ export default function WorkspacePage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#090d16] text-white">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0b0b0f] text-white">
         <div className="w-12 h-12 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 animate-spin mb-4" />
         <h3 className="text-sm font-semibold tracking-wider uppercase text-indigo-400">Loading HackHub Workspace...</h3>
       </div>
@@ -248,7 +273,7 @@ export default function WorkspacePage() {
 
   if (error) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#090d16] text-white p-4">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0b0b0f] text-white p-4">
         <div className="glass-panel p-6 rounded-2xl border-rose-500/30 text-center max-w-md">
           <h3 className="text-xl font-bold text-rose-400 mb-2">Workspace Access Error</h3>
           <p className="text-slate-400 text-sm mb-6">{error}</p>
@@ -261,7 +286,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden h-screen bg-[#090d16] relative">
+    <div className="flex-1 flex overflow-hidden h-screen bg-[#0b0b0f] relative">
       {/* Mobile Sidebar overlay backdrop */}
       {sidebarOpen && (
         <div 
@@ -279,8 +304,8 @@ export default function WorkspacePage() {
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1 px-1">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-500/25">
-                  <Layers className="h-5 w-5 text-white" />
+                <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#ffe500] shadow-[3px_3px_0_#000]">
+                  <Layers className="h-5 w-5 text-black" />
                 </div>
                 <span className="font-extrabold text-xl tracking-tight text-white">
                   Hack<span className="text-indigo-400">Hub</span>
@@ -400,6 +425,33 @@ export default function WorkspacePage() {
             >
               <FileText className="h-4.5 w-4.5" /> Workspace Notes
             </button>
+
+            <button
+              onClick={() => setActiveTab('judge')}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-r-xl text-xs font-bold transition text-left border-l-2.5 ${
+                activeTab === 'judge'
+                  ? 'bg-[#ffe500] text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
+                  : 'border-l-transparent text-slate-400 hover:bg-slate-900/30 hover:text-slate-200'
+              }`}
+            >
+              <Award className="h-4.5 w-4.5 text-[#ffe500]" /> Judge Mode
+            </button>
+
+            <button
+              onClick={() => setActiveTab('huddle')}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-r-xl text-xs font-bold transition text-left border-l-2.5 relative ${
+                activeTab === 'huddle'
+                  ? 'bg-[#b8ff3c] text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
+                  : 'border-l-transparent text-slate-400 hover:bg-slate-900/30 hover:text-slate-200'
+              }`}
+            >
+              <Headphones className="h-4.5 w-4.5 text-[#b8ff3c]" /> Voice Huddle
+              {huddleCount > 0 && (
+                <span className="ml-auto px-1.5 py-0.5 bg-black text-[#b8ff3c] border border-[#b8ff3c] text-[9px] font-mono font-bold">
+                  {huddleCount} Active
+                </span>
+              )}
+            </button>
           </nav>
         </div>
 
@@ -434,7 +486,7 @@ export default function WorkspacePage() {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-[#0a0f1d]/50 p-6 gap-6 relative">
+      <main className="flex-1 flex flex-col overflow-hidden bg-[#0b0b0f] p-6 gap-6 relative">
         {/* Workspace Top Header */}
         <header className="flex items-center justify-between border-b border-slate-900/40 pb-4">
           <div className="flex items-center gap-3">
@@ -449,15 +501,16 @@ export default function WorkspacePage() {
               <h1 className="text-xl font-bold text-white leading-tight">{teamName}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Active Members:</span>
-                <div className="flex -space-x-1.5">
+                <div className="flex items-center -space-x-1">
                   {onlineMembers.map((m) => (
                     <div 
                       key={m.socketId}
-                      title={`${m.name} (${m.role})`}
-                      className="w-5 h-5 rounded-full border border-indigo-400 bg-slate-900 text-[8px] font-bold flex items-center justify-center text-indigo-300 relative"
+                      title={`${m.name} (${m.role}) — Online Now`}
+                      style={{ backgroundColor: m.color || '#ffe500' }}
+                      className="w-6 h-6 border-2 border-black text-[10px] font-mono font-bold flex items-center justify-center text-black relative shadow-[2px_2px_0px_#000]"
                     >
                       {m.name.charAt(0)}
-                      <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-slate-900"></span>
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 border border-black animate-pulse"></span>
                     </div>
                   ))}
                 </div>
@@ -465,8 +518,20 @@ export default function WorkspacePage() {
             </div>
           </div>
 
-          {/* Active timer controls */}
-          <div className="flex items-center gap-4">
+          {/* Active timer controls & search palette */}
+          <div className="flex items-center gap-3">
+            <NotificationCenter socket={socket} />
+
+            <button
+              onClick={() => setCmdPaletteOpen(true)}
+              className="glass-button-secondary text-xs py-1.5! px-3! flex items-center gap-1.5 font-mono"
+              title="Command Palette (Cmd / Ctrl + K)"
+            >
+              <Search className="h-3.5 w-3.5 text-[#ffe500]" />
+              <span className="hidden sm:inline">Search / Cmd</span>
+              <kbd className="px-1.5 py-0.5 bg-black border border-slate-700 text-[9px] text-slate-300">⌘K</kbd>
+            </button>
+
             {/* Share link button */}
             <button 
               onClick={handleCopyShareLink}
@@ -581,6 +646,7 @@ export default function WorkspacePage() {
               userId={user?.id || ''}
               userName={user?.name || ''}
               initialMessages={messages}
+              teamMembers={members}
             />
           )}
 
@@ -644,8 +710,35 @@ export default function WorkspacePage() {
               initialDocuments={documents}
             />
           )}
+
+          {activeTab === 'judge' && (
+            <JudgeView 
+              teamId={teamId}
+              teamName={teamName}
+            />
+          )}
+
+          {activeTab === 'huddle' && (
+            <VoiceHuddlePanel
+              socket={socket}
+              teamId={teamId}
+              teamName={teamName}
+              user={user}
+            />
+          )}
         </div>
 
+        <CommandPalette
+          isOpen={cmdPaletteOpen}
+          onClose={() => setCmdPaletteOpen(false)}
+          onSelectTab={(tab) => setActiveTab(tab as TabType)}
+          onRunCopilotScan={() => {
+            setActiveTab('copilot');
+          }}
+          onExportZip={() => {
+            window.location.href = apiUrl(`/api/teams/${teamId}/export/zip`);
+          }}
+        />
 
       </main>
     </div>

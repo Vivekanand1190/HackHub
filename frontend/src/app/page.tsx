@@ -17,6 +17,7 @@ import {
   Video, 
   FileText 
 } from 'lucide-react';
+import { apiUrl } from '@/utils/api';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function LandingPage() {
   const fetchUserTeams = async (authToken: string) => {
     setLoadingTeams(true);
     try {
-      const res = await fetch('http://localhost:8888/api/teams', {
+      const res = await fetch(apiUrl('/api/teams'), {
         headers: {
           'Authorization': `Bearer ${authToken}`
         }
@@ -55,6 +56,12 @@ export default function LandingPage() {
       if (res.ok) {
         const data = await res.json();
         setUserTeams(data);
+      } else if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('hackhub_token');
+        localStorage.removeItem('hackhub_user');
+        setToken(null);
+        setUser(null);
+        setUserTeams([]);
       }
     } catch (err) {
       console.error('Failed to fetch user teams:', err);
@@ -110,7 +117,7 @@ export default function LandingPage() {
 
       if (!activeToken) {
         // 1. Register User
-        const regRes = await fetch('http://localhost:8888/api/auth/register', {
+        const regRes = await fetch(apiUrl('/api/auth/register'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, name, role })
@@ -127,7 +134,7 @@ export default function LandingPage() {
       }
 
       // 2. Create Team
-      const teamRes = await fetch('http://localhost:8888/api/teams/create', {
+      const teamRes = await fetch(apiUrl('/api/teams/create'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -136,7 +143,16 @@ export default function LandingPage() {
         body: JSON.stringify({ name: teamName })
       });
       const teamData = await teamRes.json();
-      if (!teamRes.ok) throw new Error(teamData.error || 'Failed to create workspace');
+      if (!teamRes.ok) {
+        if (teamRes.status === 401 || teamRes.status === 403) {
+          localStorage.removeItem('hackhub_token');
+          localStorage.removeItem('hackhub_user');
+          setToken(null);
+          setUser(null);
+          throw new Error('Session expired or token invalid. Please log in or register below to continue.');
+        }
+        throw new Error(teamData.error || 'Failed to create workspace');
+      }
 
       // Redirect to newly created workspace
       router.push(`/workspace/${teamData.id}`);
@@ -163,7 +179,7 @@ export default function LandingPage() {
           ? { email, password } 
           : { email, password, name, role };
 
-        const authRes = await fetch(`http://localhost:8888/api/auth/${authEndpoint}`, {
+        const authRes = await fetch(apiUrl(`/api/auth/${authEndpoint}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -179,7 +195,7 @@ export default function LandingPage() {
       }
 
       // Join Team
-      const joinRes = await fetch('http://localhost:8888/api/teams/join', {
+      const joinRes = await fetch(apiUrl('/api/teams/join'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -188,7 +204,16 @@ export default function LandingPage() {
         body: JSON.stringify({ joinCode })
       });
       const joinData = await joinRes.json();
-      if (!joinRes.ok) throw new Error(joinData.error || 'Failed to join workspace');
+      if (!joinRes.ok) {
+        if (joinRes.status === 401 || joinRes.status === 403) {
+          localStorage.removeItem('hackhub_token');
+          localStorage.removeItem('hackhub_user');
+          setToken(null);
+          setUser(null);
+          throw new Error('Session expired or token invalid. Please log in or register below to continue.');
+        }
+        throw new Error(joinData.error || 'Failed to join workspace');
+      }
 
       // Redirect to joined workspace
       router.push(`/workspace/${joinData.teamId}`);
@@ -200,24 +225,18 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#090d16]">
-      {/* Premium Ambient Radial Glow Background Elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-500/10 blur-[120px] pointer-events-none animate-pulse" />
-      <div className="absolute top-[35%] right-[15%] w-[35%] h-[35%] rounded-full bg-cyan-500/5 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[20%] left-[10%] w-[30%] h-[30%] rounded-full bg-emerald-500/5 blur-[100px] pointer-events-none" />
-
+    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0f]">
       {/* Background grid design */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#111827_1px,transparent_1px),linear-gradient(to_bottom,#111827_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-60"></div>
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#222_1px,transparent_1px),linear-gradient(to_bottom,#222_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-60"></div>
       
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-5 max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-500/20">
-            <Layers className="h-5.5 w-5.5 text-white" />
+          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-[#ffe500] shadow-[4px_4px_0_#000]">
+            <Layers className="h-5.5 w-5.5 text-black" />
           </div>
-          <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-white via-indigo-200 to-purple-400 bg-clip-text text-transparent">
-            HACK<span className="text-indigo-400">HUB</span>
+          <span className="font-extrabold text-2xl tracking-tight text-[#f5f1e6]">
+            HACK<span className="text-[#ffe500]">HUB</span>
           </span>
         </div>
         
@@ -572,7 +591,7 @@ await copilot.runScan();`}
                 <button
                   type="button"
                   id="google-oauth-start"
-                  onClick={() => { window.location.href = 'http://localhost:8888/api/auth/google'; }}
+                  onClick={() => { window.location.href = apiUrl('/api/auth/google'); }}
                   className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-700/80 hover:border-indigo-500/50 text-slate-200 text-sm font-semibold transition-all duration-200 group cursor-pointer"
                 >
                   <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
@@ -729,7 +748,7 @@ await copilot.runScan();`}
                 <button
                   type="button"
                   id="google-oauth-join"
-                  onClick={() => { window.location.href = 'http://localhost:8888/api/auth/google'; }}
+                  onClick={() => { window.location.href = apiUrl('/api/auth/google'); }}
                   className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-700/80 hover:border-indigo-500/50 text-slate-200 text-sm font-semibold transition-all duration-200 group cursor-pointer"
                 >
                   <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">

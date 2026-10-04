@@ -19,6 +19,10 @@ import {
   ShoppingBag,
   Flag
 } from 'lucide-react';
+import { apiUrl } from '../utils/api';
+import TeamPolls from './TeamPolls';
+import Leaderboard from './Leaderboard';
+import ThirdPartyIntegrations from './ThirdPartyIntegrations';
 
 interface Member {
   id: string;
@@ -100,9 +104,51 @@ export default function WorkspaceDashboard({
   // State
   const [gitInput, setGitInput] = useState(githubRepo);
   const [savingGit, setSavingGit] = useState(false);
+  const [gitSummary, setGitSummary] = useState<any>(null);
+  const [loadingGitSummary, setLoadingGitSummary] = useState(false);
+  const [activities, setActivities] = useState<any[]>([]);
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
   const [showShop, setShowShop] = useState(false);
   const [buyingItem, setBuyingItem] = useState<string | null>(null);
+
+  const fetchActivities = async () => {
+    try {
+      const token = localStorage.getItem('hackhub_token');
+      const res = await fetch(apiUrl(`/api/teams/${teamId}/activities`), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActivities(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch activities:', err);
+    }
+  };
+
+  const fetchGitSummary = async () => {
+    if (!githubRepo) return;
+    setLoadingGitSummary(true);
+    try {
+      const token = localStorage.getItem('hackhub_token');
+      const res = await fetch(apiUrl(`/api/teams/${teamId}/github/summary`), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGitSummary(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch GitHub summary:', err);
+    } finally {
+      setLoadingGitSummary(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchGitSummary();
+    fetchActivities();
+  }, [githubRepo, teamId]);
 
   // Default milestones if none exist yet
   const defaultMilestones: Milestone[] = [
@@ -132,7 +178,7 @@ export default function WorkspaceDashboard({
     setSavingGit(true);
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/teams/${teamId}`, {
+      const res = await fetch(apiUrl(`/api/teams/${teamId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -146,6 +192,7 @@ export default function WorkspaceDashboard({
       if (res.ok) {
         onTeamUpdate({ githubRepo: gitInput });
         alert('GitHub repository URL successfully integrated!');
+        fetchGitSummary();
       } else {
         alert('Failed to save GitHub repo URL.');
       }
@@ -164,7 +211,7 @@ export default function WorkspaceDashboard({
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/teams/${teamId}`, {
+      const res = await fetch(apiUrl(`/api/teams/${teamId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +245,7 @@ export default function WorkspaceDashboard({
 
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/teams/${teamId}`, {
+      const res = await fetch(apiUrl(`/api/teams/${teamId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -228,7 +275,7 @@ export default function WorkspaceDashboard({
     setBuyingItem(itemId);
     try {
       const token = localStorage.getItem('hackhub_token');
-      const res = await fetch(`http://localhost:8888/api/teams/${teamId}/shop`, {
+      const res = await fetch(apiUrl(`/api/teams/${teamId}/shop`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -409,42 +456,100 @@ export default function WorkspaceDashboard({
             </div>
           </div>
 
-          {/* Join Code Box */}
-          <div className="glass-panel py-2 px-5 rounded-xl border-slate-800 text-center bg-slate-950/40 shrink-0">
-            <span className="text-[8px] text-slate-500 uppercase tracking-widest font-extrabold block">Teammate Join Code</span>
-            <span className="text-xl font-mono font-extrabold text-indigo-400 tracking-widest">{joinCode}</span>
+          {/* Join Code Box & Export Zip */}
+          <div className="flex items-center gap-3">
+            <div className="glass-panel py-2 px-5 rounded-xl border-slate-800 text-center bg-slate-950/40 shrink-0">
+              <span className="text-[8px] text-slate-500 uppercase tracking-widest font-extrabold block">Teammate Join Code</span>
+              <span className="text-xl font-mono font-extrabold text-indigo-400 tracking-widest">{joinCode}</span>
+            </div>
+
+            <a
+              href={apiUrl(`/api/teams/${teamId}/export/zip`)}
+              download
+              className="glass-button text-xs py-2.5! px-3.5! flex items-center gap-1.5 font-bold"
+              title="Download Project ZIP Archive"
+            >
+              <Download className="h-4 w-4" /> Export Zip
+            </a>
           </div>
         </div>
       </div>
 
       {/* GitHub Repo Integration Card */}
-      <div className="glass-panel p-5 rounded-2xl border-slate-800 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-slate-900 border border-slate-800 text-slate-350 rounded-xl">
-            <Github className="h-5 w-5" />
+      <div className="glass-panel p-5 border-[#f5f1e6] border-3 shadow-[6px_6px_0_#ffe500] flex flex-col gap-4 bg-[#16161d]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-black border-2 border-[#ffe500] text-[#ffe500]">
+              <Github className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-[#f5f1e6]">GitHub Integration</h3>
+              <p className="text-[10px] text-slate-400 leading-normal">Link your repository for real-time commit tracking and code scan reviews</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-sm text-white">GitHub Integration</h3>
-            <p className="text-[10px] text-slate-500 leading-normal">Link your repository to trigger code quality scan reviews</p>
+
+          <div className="flex items-center gap-2.5 w-full md:w-auto max-w-md flex-1 md:justify-end">
+            <input
+              type="text"
+              value={gitInput}
+              onChange={(e) => setGitInput(e.target.value)}
+              placeholder="https://github.com/user/project-repo"
+              className="glass-input text-xs w-full"
+            />
+            <button
+              onClick={saveGithubRepo}
+              disabled={savingGit}
+              className="glass-button text-xs py-2! px-4! shrink-0 font-bold"
+            >
+              {savingGit ? 'Saving...' : 'Link Repo'}
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto max-w-md flex-1 md:justify-end">
-          <input
-            type="text"
-            value={gitInput}
-            onChange={(e) => setGitInput(e.target.value)}
-            placeholder="https://github.com/user/project-repo"
-            className="bg-slate-950 border border-slate-850 py-1.5 px-3 rounded-lg text-xs font-mono text-slate-300 w-full focus:outline-none focus:border-indigo-500/40"
-          />
-          <button
-            onClick={saveGithubRepo}
-            disabled={savingGit}
-            className="glass-button text-xs py-2! px-4! shrink-0 font-bold shadow-md"
-          >
-            {savingGit ? 'Saving...' : 'Link Repo'}
-          </button>
-        </div>
+        {/* Live Repo Stats & Commits Feed */}
+        {gitSummary && gitSummary.connected && (
+          <div className="border-t-2 border-slate-800 pt-3 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-3">
+                <span className="font-mono font-bold text-[#ffe500]">{gitSummary.fullRepoName || gitSummary.repoName}</span>
+                {gitSummary.defaultBranch && (
+                  <span className="px-2 py-0.5 bg-black border border-[#4d7cff] text-[#4d7cff] text-[10px] font-mono font-bold">
+                    branch: {gitSummary.defaultBranch}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-[11px] font-mono text-slate-300">
+                <span>⭐ {gitSummary.stars ?? 0} stars</span>
+                <span>🍴 {gitSummary.forks ?? 0} forks</span>
+                <span>❗ {gitSummary.openIssues ?? 0} issues</span>
+                <a 
+                  href={gitSummary.repoUrl || `https://github.com/${gitSummary.fullRepoName}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-xs font-bold text-[#ffe500] hover:underline ml-2"
+                >
+                  View Repo ↗
+                </a>
+              </div>
+            </div>
+
+            {/* Recent Commits List */}
+            {gitSummary.recentCommits && gitSummary.recentCommits.length > 0 && (
+              <div className="bg-black border border-slate-800 p-2.5 flex flex-col gap-1.5 text-xs font-mono">
+                <span className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-900 pb-1">Recent Repository Commits</span>
+                {gitSummary.recentCommits.map((c: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-[#ffe500] font-bold">{c.sha}</span>
+                      <span className="text-slate-200 truncate">{c.message}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 shrink-0">{c.author}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Stats Cards Grid */}
@@ -655,6 +760,42 @@ export default function WorkspaceDashboard({
             </div>
           </div>
 
+          {/* Real-Time Activity Feed Card */}
+          <div className="glass-panel p-5 border-[#f5f1e6] border-3 shadow-[6px_6px_0_#ff4d8d] bg-[#16161d] flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-sm text-[#f5f1e6] uppercase tracking-wider flex items-center gap-2">
+                <Clock className="h-4.5 w-4.5 text-[#ff4d8d]" /> Live Activity Stream
+              </h3>
+              <span className="text-[10px] font-mono text-slate-400">({activities.length} recent events)</span>
+            </div>
+
+            {activities.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-500 font-mono">
+                No recent workspace activities recorded yet.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+                {activities.map((act) => (
+                  <div key={act.id} className="bg-black border border-slate-800 p-2.5 flex items-center justify-between gap-3 text-xs font-mono">
+                    <div className="flex items-center gap-2.5 truncate">
+                      <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase bg-slate-900 border border-slate-700 text-[#ffe500]">
+                        {act.category}
+                      </span>
+                      <span className="text-slate-200 truncate">{act.title}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 shrink-0">{act.author}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Team Sprint Polls Card */}
+          <TeamPolls teamId={teamId} userId={user?.id} />
+
+          {/* Team Leaderboard Card */}
+          <Leaderboard teamId={teamId} />
+
           {/* Active Tasks Overview */}
           <div className="glass-panel p-5 rounded-2xl flex flex-col gap-4 shadow-lg border-slate-800">
             <h3 className="font-bold text-slate-100 flex items-center gap-2">
@@ -779,7 +920,7 @@ export default function WorkspaceDashboard({
                     </div>
 
                     <a 
-                      href={`http://localhost:8888${file.url}`} 
+                      href={file.url.startsWith('http') ? file.url : apiUrl(file.url)} 
                       download={file.originalName}
                       className="p-1.5 bg-slate-800 hover:bg-slate-705 text-slate-400 hover:text-white rounded-lg transition shrink-0 border border-slate-800"
                     >
@@ -795,8 +936,8 @@ export default function WorkspaceDashboard({
 
       {/* MODAL: XP REWARDS SHOP */}
       {showShop && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-panel p-6 rounded-2xl border-slate-800 max-w-md w-full flex flex-col gap-4 bg-[#0a0f1d] relative shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="glass-panel p-6 border-[#f5f1e6] border-3 max-w-md w-full flex flex-col gap-4 bg-[#16161d] relative shadow-[6px_6px_0_#ffe500]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-amber-400" />

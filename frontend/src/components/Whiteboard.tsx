@@ -56,7 +56,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
   
   // Drawing configurations
   const [tool, setTool] = useState<'brush' | 'highlighter' | 'calligraphy' | 'eraser' | 'rect' | 'circle' | 'line' | 'arrow' | 'triangle' | 'sticky' | 'pan' | 'laser'>('brush');
-  const [color, setColor] = useState('#6366f1');
+  const [color, setColor] = useState('#ffe500');
   const [strokeWidth, setStrokeWidth] = useState<number>(3);
   const [strokeStyle, setStrokeStyle] = useState<'solid' | 'dashed' | 'dotted'>('solid');
   const [fillMode, setFillMode] = useState<'none' | 'semi' | 'solid'>('none');
@@ -81,6 +81,8 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
   const [spacePressed, setSpacePressed] = useState(false);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [activeLasers, setActiveLasers] = useState<Record<string, { path: { x: number; y: number }[]; color: string; timestamp: number }>>({});
+  const [remoteCursors, setRemoteCursors] = useState<Record<string, { socketId: string; userId: string; name: string; color: string; x: number; y: number }>>({});
+  const lastEmitRef = useRef<number>(0);
 
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
 
@@ -198,12 +200,53 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
       setHistory([]);
     };
 
+    const handleCursorMove = (data: { socketId: string; userId: string; name: string; color: string; target: string; x: number; y: number }) => {
+      if (data.target === 'whiteboard') {
+        setRemoteCursors(prev => ({
+          ...prev,
+          [data.socketId]: {
+            socketId: data.socketId,
+            userId: data.userId,
+            name: data.name,
+            color: data.color || '#ffe500',
+            x: data.x,
+            y: data.y
+          }
+        }));
+      }
+    };
+
+    const handleCursorRemove = (data: { socketId: string }) => {
+      setRemoteCursors(prev => {
+        const next = { ...prev };
+        delete next[data.socketId];
+        return next;
+      });
+    };
+
+    const handleMembersUpdate = (members: any[]) => {
+      const activeSocketIds = new Set((members || []).map(m => m.socketId));
+      setRemoteCursors(prev => {
+        const next: Record<string, any> = {};
+        Object.entries(prev).forEach(([key, cur]) => {
+          if (activeSocketIds.has(key)) next[key] = cur;
+        });
+        return next;
+      });
+    };
+
     socket.on('draw-action', handleDrawAction);
     socket.on('draw-clear', handleClear);
+    socket.on('cursor-move', handleCursorMove);
+    socket.on('cursor-remove', handleCursorRemove);
+    socket.on('members-update', handleMembersUpdate);
 
     return () => {
       socket.off('draw-action', handleDrawAction);
       socket.off('draw-clear', handleClear);
+      socket.off('cursor-move', handleCursorMove);
+      socket.off('cursor-remove', handleCursorRemove);
+      socket.off('members-update', handleMembersUpdate);
     };
   }, [socket]);
 
@@ -493,6 +536,13 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const now = Date.now();
+    if (socket && now - lastEmitRef.current > 30) {
+      lastEmitRef.current = now;
+      const coords = getCoordinates(e);
+      socket.emit('cursor-move', { teamId, target: 'whiteboard', x: coords.x, y: coords.y });
+    }
+
     // 1. Pan Execution Check
     if (isPanning) {
       const dx = e.clientX - lastMousePos.x;
@@ -996,14 +1046,14 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
           </div>
 
           {/* Color Picker Palette */}
-          <div className="flex items-center gap-1.5 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800/80">
-            {['#6366f1', '#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#eab308'].map(c => (
+          <div className="flex items-center gap-1.5 bg-slate-900/80 p-1.5 border border-slate-800">
+            {['#ffe500', '#ff4d8d', '#4d7cff', '#b8ff3c', '#ff6b35', '#f5f1e6'].map(c => (
               <button
                 key={c}
                 onClick={() => setColor(c)}
                 style={{ backgroundColor: c }}
-                className={`w-5 h-5 rounded-full border transition ${
-                  color === c ? 'scale-115 ring-2 ring-white/50 border-white' : 'border-transparent opacity-80 hover:opacity-100'
+                className={`w-5 h-5 border-2 transition ${
+                  color === c ? 'scale-110 border-white ring-2 ring-yellow-400' : 'border-black opacity-80 hover:opacity-100'
                 }`}
               />
             ))}
@@ -1011,7 +1061,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
               type="color" 
               value={color}
               onChange={(e) => setColor(e.target.value)}
-              className="w-5 h-5 rounded-full overflow-hidden border-none outline-none cursor-pointer bg-transparent"
+              className="w-5 h-5 overflow-hidden border-none outline-none cursor-pointer bg-transparent"
               title="Custom Color"
             />
           </div>
@@ -1019,7 +1069,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
           {/* Snap to Grid */}
           <button
             onClick={() => setSnapToGrid(!snapToGrid)}
-            className={`p-2 rounded-xl transition ${
+            className={`p-2 transition ${
               snapToGrid ? 'bg-indigo-500/25 border border-indigo-500/40 text-indigo-400 font-bold' : 'bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-slate-200'
             }`}
             title="Snap to Grid"
@@ -1028,24 +1078,24 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
           </button>
 
           {/* Zoom & Pan Controls */}
-          <div className="flex bg-slate-900/80 p-0.5 rounded-xl border border-slate-800/80 items-center">
+          <div className="flex bg-slate-900/80 p-0.5 border border-slate-800 items-center">
             <button
               onClick={() => setZoom(z => Math.max(0.25, z - 0.15))}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 transition"
+              className="p-1.5 text-slate-500 hover:text-slate-300 transition"
               title="Zoom Out"
             >
               <ZoomOut className="h-4.5 w-4.5" />
             </button>
             <button
               onClick={() => { setZoom(1); setPanX(0); setPanY(0); }}
-              className="px-2 rounded-md text-[9px] font-extrabold text-slate-400 hover:text-slate-200 transition min-w-[36px] text-center"
+              className="px-2 text-[9px] font-extrabold text-slate-400 hover:text-slate-200 transition min-w-[36px] text-center"
               title="Reset Zoom & Pan"
             >
               {Math.round(zoom * 100)}%
             </button>
             <button
               onClick={() => setZoom(z => Math.min(4, z + 0.15))}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 transition"
+              className="p-1.5 text-slate-500 hover:text-slate-300 transition"
               title="Zoom In"
             >
               <ZoomIn className="h-4.5 w-4.5" />
@@ -1055,7 +1105,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
           {/* Export PNG */}
           <button
             onClick={handleExportPNG}
-            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-emerald-400 hover:text-emerald-350 border border-slate-800 transition shadow-inner"
+            className="p-2 bg-slate-900 hover:bg-slate-850 text-emerald-400 hover:text-emerald-350 border border-slate-800 transition"
             title="Export to PNG"
           >
             <Download className="h-4.5 w-4.5" />
@@ -1063,7 +1113,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
 
           <button
             onClick={handleClearWhiteboard}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 text-rose-400 hover:text-rose-300 transition"
+            className="p-2 bg-slate-800 hover:bg-slate-700/80 text-rose-400 hover:text-rose-300 transition"
             title="Clear Board"
           >
             <Trash2 className="h-4.5 w-4.5" />
@@ -1072,7 +1122,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
       </div>
 
       {/* Canvas container */}
-      <div className="flex-1 relative bg-[#090b10] cursor-crosshair overflow-hidden select-none">
+      <div className="flex-1 relative bg-[#16161d] cursor-crosshair overflow-hidden select-none border-t-3 border-[#f5f1e6]">
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}
@@ -1116,6 +1166,37 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
             <div className="whitespace-pre-wrap break-words mt-1 leading-normal select-none pr-1">
               {s.text}
             </div>
+          </div>
+        ))}
+
+        {/* Remote Cursors Overlay */}
+        {Object.values(remoteCursors).map((cursor) => (
+          <div
+            key={cursor.socketId}
+            style={{ 
+              left: `${panX + cursor.x * zoom}px`, 
+              top: `${panY + cursor.y * zoom}px`,
+              transform: 'translate(-2px, -2px)'
+            }}
+            className="absolute z-40 pointer-events-none flex items-center gap-1 transition-all duration-75 ease-out"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill={cursor.color}
+              stroke="#000000"
+              strokeWidth="2"
+              className="drop-shadow-[1px_1px_0px_#000]"
+            >
+              <path d="M3 3l7 18 3-7 7-3L3 3z" />
+            </svg>
+            <span
+              className="px-1.5 py-0.5 text-[10px] font-mono font-bold text-black border-2 border-black shadow-[2px_2px_0px_#000] whitespace-nowrap"
+              style={{ backgroundColor: cursor.color }}
+            >
+              {cursor.name}
+            </span>
           </div>
         ))}
       </div>

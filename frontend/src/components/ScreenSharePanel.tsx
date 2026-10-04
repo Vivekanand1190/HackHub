@@ -549,7 +549,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
           ref={containerRef}
           onMouseMove={handleMouseMove}
           onClick={handleViewportClick}
-          className={`flex-1 glass-panel rounded-2xl border-slate-800 bg-[#070b13] relative overflow-hidden flex items-center justify-center p-1 group min-h-[300px] ${
+          className={`flex-1 glass-panel border-[#f5f1e6] bg-[#16161d] relative overflow-hidden flex items-center justify-center p-1 group min-h-[300px] ${
             isControlling ? 'cursor-crosshair' : ''
           }`}
         >
@@ -562,14 +562,14 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
                   autoPlay 
                   playsInline 
                   muted 
-                  className={`w-full h-full object-contain rounded-xl ${
-                    presenter.shareType === 'half' ? 'scale-x-90 scale-y-90 border border-indigo-500/20 rounded-lg shadow-lg' : ''
+                  className={`w-full h-full object-contain ${
+                    presenter.shareType === 'half' ? 'scale-x-90 scale-y-90 border-2 border-[#ffe500]' : ''
                   }`} 
                 />
               ) : (
                 /* Falling back to visual mockup of a remote developer dashboard */
-                <div className={`w-full h-full rounded-xl bg-[#090d16] border border-slate-900 p-4 font-mono text-[10px] flex flex-col justify-between relative ${
-                  presenter.shareType === 'half' ? 'max-w-[85%] max-h-[85%] border-indigo-500/30 shadow-2xl rounded-lg' : ''
+                <div className={`w-full h-full bg-[#0b0b0f] border-2 border-[#f5f1e6] p-4 font-mono text-[10px] flex flex-col justify-between relative ${
+                  presenter.shareType === 'half' ? 'max-w-[85%] max-h-[85%] border-[#ffe500]' : ''
                 }`}>
                   {/* Fake UI Header */}
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">

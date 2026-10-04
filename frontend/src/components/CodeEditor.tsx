@@ -1,4 +1,4 @@
-import { API_BASE } from '../utils/api';
+import { API_BASE, apiUrl } from '../utils/api';
 import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { 
@@ -12,7 +12,9 @@ import {
   AlertCircle, 
   Plus, 
   Check, 
-  X 
+  X,
+  Clock,
+  RotateCcw
 } from 'lucide-react';
 import { Socket } from 'socket.io-client';
 
@@ -52,7 +54,72 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
   const [saving, setSaving] = useState(false);
   const [cursors, setCursors] = useState<Record<string, { name: string; cursor: { lineNumber: number; column: number } }>>({});
 
-  // Linter and Floating Copilot States
+  // Version History States
+  const [showHistory, setShowHistory] = useState(false);
+  const [revisions, setRevisions] = useState<any[]>([]);
+  const [savingSnapshot, setSavingSnapshot] = useState(false);
+
+  const fetchHistory = async () => {
+    if (!selectedSnippet) return;
+    try {
+      const token = localStorage.getItem('hackhub_token');
+      const res = await fetch(apiUrl(`/api/snippets/${selectedSnippet.id}/history`), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRevisions(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch version history:', err);
+    }
+  };
+
+  const handleSaveSnapshot = async () => {
+    if (!selectedSnippet) return;
+    setSavingSnapshot(true);
+    try {
+      const token = localStorage.getItem('hackhub_token');
+      const res = await fetch(apiUrl(`/api/snippets/${selectedSnippet.id}/history`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          code,
+          language,
+          commitMessage: `Revision created at ${new Date().toLocaleTimeString()}`
+        })
+      });
+      if (res.ok) {
+        fetchHistory();
+        alert('Code version snapshot saved!');
+      }
+    } catch (err) {
+      console.error('Failed to save snapshot:', err);
+    } finally {
+      setSavingSnapshot(false);
+    }
+  };
+
+  const handleRestoreRevision = async (rev: any) => {
+    if (!selectedSnippet) return;
+    try {
+      setCode(rev.code);
+      if (rev.language) setLanguage(rev.language);
+      if (socket) {
+        socket.emit('code-update', { teamId, snippetId: selectedSnippet.id, code: rev.code });
+      }
+      alert(`Restored code snapshot from ${new Date(rev.createdAt).toLocaleTimeString()}!`);
+    } catch (err) {
+      console.error('Error restoring revision:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedSnippet) fetchHistory();
+  }, [selectedSnippet]);
   const [lintIssues, setLintIssues] = useState<LintIssue[]>([]);
   const [showCopilotOverlay, setShowCopilotOverlay] = useState(true);
   const [addingTaskMap, setAddingTaskMap] = useState<Record<string, boolean>>({});
@@ -179,48 +246,38 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
     });
   };
 
-  // Run Code Mock compilation
-  const handleRunCode = () => {
+  // Run Code in Sandboxed Environment
+  const handleRunCode = async () => {
     setRunning(true);
-    setOutput(['Compiling code project...', 'Starting sandboxed Node environment...']);
+    setOutput(['[Sandbox Runner] Compiling code project...', '[Sandbox Runner] Initializing sandboxed environment...']);
 
-    setTimeout(() => {
-      try {
-        const errors = lintIssues.filter(i => i.severity === 'error');
-        if (errors.length > 0) {
-          throw new Error(`Compile error: Unexpected keyword '${errors[0].fixText}' on line ${errors[0].line}.`);
-        }
+    try {
+      const token = localStorage.getItem('hackhub_token');
+      const res = await fetch(apiUrl('/api/sandbox/execute'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ code, language })
+      });
 
-        if (language === 'javascript') {
-          const logs: string[] = [];
-          const customConsole = {
-            log: (...args: any[]) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')),
-            error: (...args: any[]) => logs.push(`[Error] ${args.join(' ')}`),
-            warn: (...args: any[]) => logs.push(`[Warning] ${args.join(' ')}`),
-          };
-
-          const execute = new Function('console', code);
-          execute(customConsole);
-
-          setOutput(prev => [
-            ...prev,
-            ...logs,
-            '💡 Output finished successfully.'
-          ]);
-        } else {
-          setOutput(prev => [
-            ...prev,
-            `Successfully simulated ${language.toUpperCase()} execution environment.`,
-            `Input size: ${code.split('\n').length} lines.`,
-            '💡 Sandbox execution compiled successfully.'
-          ]);
-        }
-      } catch (err: any) {
-        setOutput(prev => [...prev, `❌ Execution Error: ${err.message}`]);
-      } finally {
-        setRunning(false);
+      if (res.ok) {
+        const data = await res.json();
+        setOutput([
+          `⚡ Execution completed in ${data.durationMs}ms [${data.language.toUpperCase()}]`,
+          ...(data.logs || []),
+          data.success ? '✅ Output finished cleanly.' : '❌ Execution finished with errors.'
+        ]);
+      } else {
+        const errData = await res.json();
+        setOutput(prev => [...prev, `❌ Execution Error: ${errData.error || 'Failed to execute code'}`]);
       }
-    }, 1200);
+    } catch (err: any) {
+      setOutput(prev => [...prev, `❌ Network / Execution Error: ${err.message}`]);
+    } finally {
+      setRunning(false);
+    }
   };
 
   // AI Copilot Autofix function
@@ -406,6 +463,30 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
               ))}
             </div>
 
+            <button
+              onClick={handleSaveSnapshot}
+              disabled={savingSnapshot || !selectedSnippet}
+              className="glass-button-secondary text-xs py-1.5! px-3! flex items-center gap-1.5 font-mono"
+              title="Save version snapshot"
+            >
+              <Save className="h-3.5 w-3.5 text-[#ffe500]" />
+              <span className="hidden sm:inline">{savingSnapshot ? 'Snapshotting...' : 'Snapshot'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              disabled={!selectedSnippet}
+              className={`text-xs py-1.5! px-3! flex items-center gap-1.5 font-mono border-2 transition ${
+                showHistory 
+                  ? 'bg-[#ffe500] text-black border-black font-bold' 
+                  : 'bg-black text-[#f5f1e6] border-[#f5f1e6]'
+              }`}
+              title="View Version History"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              <span>History ({revisions.length})</span>
+            </button>
+
             <button 
               onClick={handleRunCode}
               disabled={running}
@@ -416,14 +497,65 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
           </div>
         </div>
 
+        {/* Version History Drawer Panel */}
+        {showHistory && (
+          <div className="bg-[#16161d] border-3 border-[#f5f1e6] p-3 shadow-[4px_4px_0_#ffe500] flex flex-col gap-2 font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-[#ffe500] uppercase">Version History Revisions</span>
+              <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {revisions.length === 0 ? (
+              <div className="text-slate-500 text-[11px] p-3 text-center">
+                No snapshots saved for this file yet. Click "Snapshot" above to create one.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                {revisions.map((rev) => (
+                  <div key={rev.id} className="bg-black border border-slate-800 p-2 flex items-center justify-between gap-3 text-[11px]">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-slate-200 font-semibold truncate">{rev.commitMessage}</span>
+                      <span className="text-[9px] text-slate-500">{rev.author} • {new Date(rev.createdAt).toLocaleString()}</span>
+                    </div>
+                    <button
+                      onClick={() => handleRestoreRevision(rev)}
+                      className="px-2.5 py-1 bg-[#4d7cff] hover:bg-[#3a5fd9] text-black font-bold uppercase text-[9px] border border-black flex items-center gap-1 shrink-0"
+                    >
+                      <RotateCcw className="h-3 w-3" /> Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Monaco Editor Screen */}
-        <div className="flex-1 glass-panel rounded-2xl overflow-hidden border-slate-800 min-h-[380px] p-2 bg-[#101216] relative">
+        <div className="flex-1 glass-panel overflow-hidden min-h-[380px] p-2 bg-[#16161d] relative">
           <Editor
             height="100%"
             language={language}
-            theme="vs-dark"
+            theme="neo-brutalist"
             value={code}
             onChange={handleEditorChange}
+            beforeMount={(monaco) => {
+              monaco.editor.defineTheme('neo-brutalist', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [],
+                colors: {
+                  'editor.background': '#16161d',
+                  'editor.foreground': '#f5f1e6',
+                  'editorCursor.foreground': '#ffe500',
+                  'editor.lineHighlightBackground': '#22222a',
+                  'editorLineNumber.foreground': '#777777',
+                  'editorLineNumber.activeForeground': '#ffe500',
+                  'editor.selectionBackground': '#4d7cff44',
+                }
+              });
+            }}
             onMount={(editor) => {
               editor.onDidChangeCursorPosition(handleCursorChange);
             }}
