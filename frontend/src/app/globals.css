@@ -91,9 +91,10 @@
 }
 
 :root {
-  --font-space-grotesk: "Space Grotesk", system-ui, -apple-system, sans-serif;
-  --font-archivo-black: "Archivo Black", impact, sans-serif;
-  --font-jetbrains-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* The --font-* family variables are supplied by next/font/local in layout.tsx.
+     Defining them here as well would collide with the generated class on <body>
+     (equal specificity, so which one wins depends on stylesheet order) and could
+     silently pin every heading back to the system fallback. */
   --paper: #0b0b0f;
   --surface: #16161d;
   --ink: #f5f1e6;
