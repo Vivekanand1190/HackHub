@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { execFile } from 'child_process';
+import os from 'os';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -451,9 +452,6 @@ router.post('/snippets', authMiddleware, requireTeamMemberFromBody('teamId'), as
   }
 });
 
-// Version History Storage Map
-const snippetHistoryStore = new Map<string, Array<{ id: string; snippetId: string; code: string; language: string; commitMessage: string; author: string; createdAt: string }>>();
-
 // Version History: Get revisions for a snippet
 router.get('/snippets/:snippetId/history', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const { snippetId } = req.params;
@@ -465,7 +463,10 @@ router.get('/snippets/:snippetId/history', authMiddleware, async (req: Authentic
     return res.status(403).json({ error: 'You are not a member of this team' });
   }
 
-  const revisions = snippetHistoryStore.get(snippetId) || [];
+  const revisions = await prisma.snippetRevision.findMany({
+    where: { snippetId },
+    orderBy: { createdAt: 'desc' }
+  });
   res.json(revisions);
 });
 
@@ -482,21 +483,24 @@ router.post('/snippets/:snippetId/history', authMiddleware, async (req: Authenti
     return res.status(403).json({ error: 'You are not a member of this team' });
   }
 
-  const revisions = snippetHistoryStore.get(snippetId) || [];
-  const newRevision = {
-    id: `rev-${Date.now()}`,
-    snippetId,
-    code,
-    language: language || 'javascript',
-    commitMessage: commitMessage || `Snapshot revision ${revisions.length + 1}`,
-    author: req.user?.name || 'Teammate',
-    createdAt: new Date().toISOString()
-  };
+  try {
+    const existingCount = await prisma.snippetRevision.count({ where: { snippetId } });
 
-  const updatedRevisions = [newRevision, ...revisions];
-  snippetHistoryStore.set(snippetId, updatedRevisions);
+    const revision = await prisma.snippetRevision.create({
+      data: {
+        snippetId,
+        code,
+        language: language || 'javascript',
+        commitMessage: commitMessage || `Snapshot revision ${existingCount + 1}`,
+        author: req.user.name || 'Teammate'
+      }
+    });
 
-  res.status(201).json(newRevision);
+    res.status(201).json(revision);
+  } catch (err) {
+    console.error('Failed to save snippet revision:', err);
+    res.status(500).json({ error: 'Failed to save revision' });
+  }
 });
 
 // Version History: Restore a past revision
@@ -510,8 +514,9 @@ router.post('/snippets/:snippetId/restore', authMiddleware, async (req: Authenti
     return res.status(403).json({ error: 'You are not a member of this team' });
   }
 
-  const revisions = snippetHistoryStore.get(snippetId) || [];
-  const target = revisions.find(r => r.id === revisionId);
+  const target = await prisma.snippetRevision.findFirst({
+    where: { id: revisionId, snippetId }
+  });
 
   if (!target) return res.status(404).json({ error: 'Revision not found' });
 
@@ -613,7 +618,10 @@ router.post('/sandbox/execute', authMiddleware, async (req: AuthenticatedRequest
     {
       timeout: 3000,
       maxBuffer: 1024 * 512,
-      env: { ...process.env, NODE_ENV: 'sandbox' }
+      cwd: os.tmpdir(),
+      // Deliberately minimal: never inherit the backend's environment, or
+      // submitted code could read JWT_SECRET / DATABASE_URL via process.env.
+      env: { NODE_ENV: 'sandbox', TZ: 'UTC' }
     },
     (error, stdout, stderr) => {
       const durationMs = Date.now() - startTime;
@@ -1032,7 +1040,7 @@ function createSimpleZipBuffer(files: Array<{ name: string; content: string | Bu
     cdHeader.writeUInt32LE(currentOffset, 42);
 
     centralDirectoryBuffers.push(cdHeader, filenameBuf);
-    currentOffset += 30 + filenameBuf.length + contentBuf.length;
+    currentOffset += 30 + filenameBub.length + contentBuf.length;
   }
 
   const cdStartOffset = currentOffset;
@@ -1401,7 +1409,7 @@ router.post('/copilot/audit/:teamId', authMiddleware, requireTeamMember(), async
     });
 
     snippets.forEach(s => {
-      const conditionalMatches = s.code.match(/(if|for|while|case|&&|\|\|)/g) || [];
+      const conditionalMatches = s.code.match(/(if|for|while|case|&&|\\|\\|)/g) || [];
       const compVal = 1 + conditionalMatches.length;
       complexityAnalysis.push({
         file: s.title,
