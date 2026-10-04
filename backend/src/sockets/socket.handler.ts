@@ -55,7 +55,7 @@ function getUserColor(userId: string): string {
 const activePresence = new Map<string, Map<string, UserPresence>>();
 
 // Active screenshare presenters: teamId -> { socketId, username }
-const activePresenters = new Map<string, { socketId: string; username: string }>();
+const activePresenters = new Map<string, { socketId: string; username: string; shareType: 'full' | 'half' }>();
 
 // Team countdown timers: teamId -> { endTime, running, duration }
 const activeTimers = new Map<string, { endTime: number | null; running: boolean; duration: number }>();
@@ -585,10 +585,15 @@ export function registerSocketHandlers(io: Server) {
 
     // WebRTC Screen Sharing & Video Calls
     socket.on('screenshare-start', (data) => {
-      const { teamId, username } = data || {};
+      const { teamId, username, shareType } = data || {};
       if (!inTeamRoom(teamId)) return;
 
-      const presenter = { socketId: socket.id, username: username || user.name };
+      const presenter = {
+        socketId: socket.id,
+        username: username || user.name,
+        // Forwarded so viewers can lay the stream out the way the presenter chose.
+        shareType: shareType === 'half' ? ('half' as const) : ('full' as const),
+      };
       activePresenters.set(teamId, presenter);
       io.to(teamId).emit('screenshare-start', presenter);
     });

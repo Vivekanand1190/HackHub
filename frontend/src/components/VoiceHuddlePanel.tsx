@@ -10,6 +10,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { Socket } from 'socket.io-client';
+import { ICE_SERVERS, type RelayPayload } from '@/utils/webrtc';
 
 interface HuddleMember {
   socketId: string;
@@ -28,28 +29,6 @@ interface VoiceHuddlePanelProps {
   teamName: string;
   user: { id: string; name: string; role: string } | null;
 }
-
-/**
- * ICE configuration.
- *
- * Deliberately empty by default. With no STUN/TURN the browser only gathers
- * host candidates, which is all a localhost or same-LAN call needs - and it
- * means the call touches no third-party service at all.
- *
- * To also reach peers behind NAT on other networks, point NEXT_PUBLIC_TURN_URL
- * at a relay you run yourself (e.g. coturn). It stays a variable reference so
- * the noExternalHosts audit in CI still passes.
- */
-const ICE_SERVERS: RTCIceServer[] = (() => {
-  const url = process.env.NEXT_PUBLIC_TURN_URL;
-  if (!url) return [];
-  const server: RTCIceServer = { urls: url };
-  const username = process.env.NEXT_PUBLIC_TURN_USERNAME;
-  const credential = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-  if (username) server.username = username;
-  if (credential) server.credential = credential;
-  return [server];
-})();
 
 interface PeerEntry {
   pc: RTCPeerConnection;
@@ -224,7 +203,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
         socket?.emit('webrtc-signal', {
           teamId,
           to: remoteId,
-          signal: { candidate: event.candidate.toJSON() },
+          signal: { scope: 'huddle', candidate: event.candidate.toJSON() },
         });
       };
 
@@ -248,7 +227,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
             socket?.emit('webrtc-signal', {
               teamId,
               to: remoteId,
-              signal: { sdp: pc.localDescription },
+              signal: { scope: 'huddle', sdp: pc.localDescription },
             });
           } catch (err) {
             console.error('[huddle] failed to create offer', err);
@@ -269,13 +248,12 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
   useEffect(() => {
     if (!socket) return;
 
-    const handleSignal = async (payload: {
-      signal?: { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit };
-      from?: string;
-    }) => {
+    const handleSignal = async (payload: RelayPayload) => {
       const from = payload?.from;
       const signal = payload?.signal;
       if (!from || !signal || !inHuddleRef.current) return;
+      // Screen-share negotiation travels over the same relay; ignore it here.
+      if (signal.scope && signal.scope !== 'huddle') return;
 
       const entry = ensurePeer(from);
       if (!entry) return;
@@ -290,7 +268,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
             socket.emit('webrtc-signal', {
               teamId,
               to: from,
-              signal: { sdp: pc.localDescription },
+              signal: { scope: 'huddle', sdp: pc.localDescription },
             });
           }
         } else if (signal.candidate) {

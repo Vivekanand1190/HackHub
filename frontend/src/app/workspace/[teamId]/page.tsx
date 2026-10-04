@@ -687,13 +687,14 @@ export default function WorkspacePage() {
             />
           )}
 
-          {activeTab === 'screenshare' && (
+          {/* Also kept mounted: switching tabs must not drop an active share. */}
+          <div className={activeTab === 'screenshare' ? 'h-full' : 'hidden'}>
             <ScreenSharePanel 
               socket={socket}
               teamId={teamId}
               user={user}
             />
-          )}
+          </div>
 
           {activeTab === 'files' && (
             <FileVault 

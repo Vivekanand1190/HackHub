@@ -18,6 +18,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Socket } from 'socket.io-client';
+import { ICE_SERVERS, type RelayPayload } from '@/utils/webrtc';
 
 interface ScreenSharePanelProps {
   socket: Socket | null;
@@ -32,6 +33,16 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
   // Presenter details: socketId, username, shareType
   const [presenter, setPresenter] = useState<{ socketId: string; username: string; shareType?: 'full' | 'half' } | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
+  // Live transport for the shared screen. One RTCPeerConnection per peer:
+  // a viewer holds one (to the presenter), the presenter holds one per viewer.
+  const streamRef = useRef<MediaStream | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+
+  const isPresenter = !!socket && presenter?.socketId === socket.id;
   
   // Remote Control state
   const [remoteControlAllowed, setRemoteControlAllowed] = useState(true);
@@ -143,6 +154,145 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
     };
   }, [socket, remoteControlAllowed, presenter, controllingUser]);
 
+  // ---------------------------------------------------------------------
+  // Screen-share media transport.
+  //
+  // The share is peer-to-peer: a viewer asks the presenter for the stream over
+  // the existing team-scoped `webrtc-signal` relay, and the video then flows
+  // directly between the two browsers. Nothing is proxied through the backend
+  // and no third-party service is involved.
+  // ---------------------------------------------------------------------
+  useEffect(() => {
+    if (!socket) return;
+
+    const send = (to: string, signal: Record<string, unknown>) => {
+      socket.emit('webrtc-signal', {
+        teamId,
+        to,
+        signal: { scope: 'screenshare', ...signal },
+      });
+    };
+
+    const closeAll = () => {
+      peersRef.current.forEach((pc) => {
+        pc.onicecandidate = null;
+        pc.ontrack = null;
+        pc.onconnectionstatechange = null;
+        try {
+          pc.close();
+        } catch {
+          /* already closed */
+        }
+      });
+      peersRef.current.clear();
+      pendingIceRef.current.clear();
+      setRemoteStream(null);
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    };
+
+    const makePeer = (remoteId: string): RTCPeerConnection => {
+      const existing = peersRef.current.get(remoteId);
+      if (existing) return existing;
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      pc.onicecandidate = (event) => {
+        if (event.candidate) send(remoteId, { candidate: event.candidate.toJSON() });
+      };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed') {
+          try {
+            pc.restartIce();
+          } catch {
+            /* not supported everywhere */
+          }
+        }
+      };
+      peersRef.current.set(remoteId, pc);
+      return pc;
+    };
+
+    const flushPendingIce = async (pc: RTCPeerConnection, remoteId: string) => {
+      const queued = pendingIceRef.current.get(remoteId) ?? [];
+      pendingIceRef.current.delete(remoteId);
+      for (const candidate of queued) {
+        try {
+          await pc.addIceCandidate(candidate);
+        } catch (err) {
+          console.error('[screenshare] failed to apply queued ICE candidate', err);
+        }
+      }
+    };
+
+    // A viewer asks the presenter to start sending.
+    const startWatching = async (presenterId: string) => {
+      const pc = makePeer(presenterId);
+      pc.ontrack = (event) => {
+        const inbound = event.streams[0] ?? new MediaStream([event.track]);
+        setRemoteStream(inbound);
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = inbound;
+          void remoteVideoRef.current.play().catch(() => {});
+        }
+      };
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      try {
+        await pc.setLocalDescription();
+        send(presenterId, { sdp: pc.localDescription });
+      } catch (err) {
+        console.error('[screenshare] failed to create viewer offer', err);
+      }
+    };
+
+    const handleSignal = async (payload: RelayPayload) => {
+      const from = payload?.from;
+      const signal = payload?.signal;
+      if (!from || !signal || signal.scope !== 'screenshare') return;
+
+      const pc = makePeer(from);
+      try {
+        if (signal.sdp) {
+          await pc.setRemoteDescription(signal.sdp);
+          await flushPendingIce(pc, from);
+          if (signal.sdp.type === 'offer') {
+            // We are the presenter: attach the live display track for this viewer.
+            const display = streamRef.current;
+            if (!display) return;
+            display.getVideoTracks().forEach((track) => pc.addTrack(track, display));
+            await pc.setLocalDescription();
+            send(from, { sdp: pc.localDescription });
+          }
+        } else if (signal.candidate) {
+          // Candidates can outrun the description; hold them until it lands.
+          if (pc.remoteDescription) await pc.addIceCandidate(signal.candidate);
+          else {
+            const queued = pendingIceRef.current.get(from) ?? [];
+            queued.push(signal.candidate);
+            pendingIceRef.current.set(from, queued);
+          }
+        }
+      } catch (err) {
+        console.error('[screenshare] signalling error', err);
+      }
+    };
+
+    const handleStart = (data: { socketId?: string } | null) => {
+      const presenterId = data?.socketId;
+      if (!presenterId || presenterId === socket.id) return;
+      closeAll();
+      void startWatching(presenterId);
+    };
+
+    socket.on('webrtc-signal', handleSignal);
+    socket.on('screenshare-start', handleStart);
+    socket.on('screenshare-stop', closeAll);
+
+    return () => {
+      socket.off('webrtc-signal', handleSignal);
+      socket.off('screenshare-start', handleStart);
+      socket.off('screenshare-stop', closeAll);
+      closeAll();
+    };
+  }, [socket, teamId]);
+
   // Request actual screen stream using MediaDevices API
   const handleStartShare = async () => {
     try {
@@ -155,6 +305,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
       });
 
       setStream(captureStream);
+      streamRef.current = captureStream;
       if (videoRef.current) {
         videoRef.current.srcObject = captureStream;
       }
@@ -180,23 +331,14 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
 
       setActionLogs(prev => [...prev, `Local: Started sharing ${shareType} screen.`]);
     } catch (err) {
-      console.warn('Real screen share denied/failed, falling back to mock screenshare', err);
+      // Capture was refused or cancelled. Do NOT announce a share: this path
+      // used to still emit screenshare-start, so every viewer was shown a fake
+      // dashboard that looked like a working share of nothing.
+      console.error('Screen capture failed or was cancelled', err);
+      setSharing(false);
       
-      // Fallback: Mock desktop screen
       setStream(null);
-      setPresenter({
-        socketId: socket?.id || 'me',
-        username: user?.name || 'Me',
-        shareType
-      });
-
-      socket?.emit('screenshare-start', {
-        teamId,
-        username: user?.name || 'Hacker',
-        shareType
-      });
-
-      setActionLogs(prev => [...prev, `Local: Started sharing mock ${shareType} screen.`]);
+      setActionLogs(prev => [...prev, 'Local: Screen capture failed - share not started.']);
     }
   };
 
@@ -205,6 +347,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
+    streamRef.current = null;
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -556,91 +699,60 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
           {presenter ? (
             <>
               {/* Real Stream Rendering element */}
-              {stream ? (
-                <video 
-                  ref={videoRef} 
-                  autoPlay 
-                  playsInline 
-                  muted 
+              {/* The presenter sees their own capture; everyone else sees the
+                  live stream arriving over WebRTC. */}
+              {isPresenter ? (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
                   className={`w-full h-full object-contain ${
                     presenter.shareType === 'half' ? 'scale-x-90 scale-y-90 border-2 border-[#ffe500]' : ''
-                  }`} 
+                  }`}
+                />
+              ) : remoteStream ? (
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className={`w-full h-full object-contain ${
+                    presenter.shareType === 'half' ? 'scale-x-90 scale-y-90 border-2 border-[#ffe500]' : ''
+                  }`}
                 />
               ) : (
-                /* Falling back to visual mockup of a remote developer dashboard */
-                <div className={`w-full h-full bg-[#0b0b0f] border-2 border-[#f5f1e6] p-4 font-mono text-[10px] flex flex-col justify-between relative ${
-                  presenter.shareType === 'half' ? 'max-w-[85%] max-h-[85%] border-[#ffe500]' : ''
-                }`}>
-                  {/* Fake UI Header */}
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                      <span className="text-[9px] text-slate-500 ml-1.5">developer-sandbox-env</span>
-                    </div>
-                    <span className="text-[9px] text-indigo-400 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded">
-                      Localhost:3000
-                    </span>
-                  </div>
-
-                  {/* Fake Source Code Editor UI */}
-                  <div className="flex-1 grid grid-cols-12 gap-3 pt-3 overflow-hidden text-left font-mono">
-                    <div className="col-span-2 border-r border-slate-900 pr-1 flex flex-col gap-1.5 text-slate-600 select-none">
-                      <span className="text-[9px] text-indigo-300 font-semibold">📂 Project</span>
-                      <span className="pl-1 truncate">├── components</span>
-                      <span className="pl-2 text-indigo-400/80 truncate">└── ScreenShare.tsx</span>
-                      <span className="pl-1 truncate">├── package.json</span>
-                      <span className="pl-1 truncate">└── index.ts</span>
-                    </div>
-                    <div className="col-span-10 flex flex-col justify-between overflow-y-auto">
-                      <div className="flex flex-col gap-1 text-slate-300">
-                        <div className="text-slate-500 leading-none select-none">1 | import React from 'react';</div>
-                        <div className="text-slate-500 leading-none select-none">2 | import {'{'} Socket {'}'} from 'socket.io-client';</div>
-                        <div className="leading-none"><span className="text-purple-400">export default function</span> <span className="text-indigo-300 font-bold">HackhubApp</span>() {'{'}</div>
-                        <div className="leading-none pl-3"><span className="text-purple-400">const</span> [status, setStatus] = useState(<span className="text-emerald-400">'live'</span>);</div>
-                        <div className="leading-none pl-3"><span className="text-slate-500 select-none">{'/* Syncing client workspaces */'}</span></div>
-                        <div className="leading-none pl-3"><span className="text-purple-400">return</span> (</div>
-                        <div className="leading-none pl-6 text-indigo-400">&lt;<span className="text-purple-400">div</span> className=<span className="text-emerald-400">"workspace-overlay"</span>&gt;</div>
-                        <div className="leading-none pl-9 text-slate-400">&lt;<span className="text-indigo-400 font-bold">WorkspaceMeet</span> /&gt;</div>
-                        <div className="leading-none pl-6 text-indigo-400">&lt;/<span className="text-purple-400">div</span>&gt;</div>
-                        <div className="leading-none pl-3">);</div>
-                        <div className="leading-none">{'}'}</div>
-                      </div>
-                      <div className="border-t border-slate-800 pt-2 text-[9px] text-slate-500 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                        Auto-sync enabled • Monaco Code editor sandbox
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Remote Cursor Overlay inside mock screen */}
-                  {remoteCursor && (
-                    <div 
-                      className="absolute bg-rose-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-lg pointer-events-none transition-all duration-75 z-50"
-                      style={{ 
-                        left: `${remoteCursor.x * 90 + 5}%`, 
-                        top: `${remoteCursor.y * 90 + 5}%` 
-                      }}
-                    >
-                      <MousePointer className="h-3 w-3 fill-current rotate-90 transform translate-y-[-2px] translate-x-[-2px]" />
-                      <span>{remoteCursor.name}</span>
-                    </div>
-                  )}
-
-                  {/* Click ripples overlay */}
-                  {clickRipples.map((ripple) => (
-                    <div 
-                      key={ripple.id}
-                      className="absolute border border-rose-500 rounded-full w-8 h-8 pointer-events-none transform -translate-x-1/2 -translate-y-1/2 animate-ping bg-rose-500/20"
-                      style={{ 
-                        left: `${ripple.x * 90 + 5}%`, 
-                        top: `${ripple.y * 90 + 5}%` 
-                      }}
-                    />
-                  ))}
+                <div className="flex flex-col items-center gap-3 text-slate-500">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-600" />
+                  <p className="text-xs">Connecting to {presenter.username}&apos;s screen&hellip;</p>
                 </div>
               )}
+
+              {/* Remote cursor and click ripples, drawn over whichever stream is showing. */}
+              <div className="absolute inset-0 pointer-events-none">
+                {remoteCursor && (
+                  <div
+                    className="absolute bg-rose-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-lg transition-all duration-75 z-50"
+                    style={{
+                      left: `${remoteCursor.x * 90 + 5}%`,
+                      top: `${remoteCursor.y * 90 + 5}%`
+                    }}
+                  >
+                    <MousePointer className="h-3 w-3 fill-current rotate-90 transform translate-y-[-2px] translate-x-[-2px]" />
+                    <span>{remoteCursor.name}</span>
+                  </div>
+                )}
+
+                {clickRipples.map((ripple) => (
+                  <div
+                    key={ripple.id}
+                    className="absolute border border-rose-500 rounded-full w-8 h-8 pointer-events-none transform -translate-x-1/2 -translate-y-1/2 animate-ping bg-rose-500/20"
+                    style={{
+                      left: `${ripple.x * 90 + 5}%`,
+                      top: `${ripple.y * 90 + 5}%`
+                    }}
+                  />
+                ))}
+              </div>
 
               {/* Presenter controls alert modal overlay */}
               {controlRequest && (
