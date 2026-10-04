@@ -70,7 +70,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${spaceGrotesk.variable} ${archivoBlack.variable} ${jetbrainsMono.variable} min-h-full flex flex-col antialiased bg-[#0b0b0f] text-[#f5f1e6]`}
       >
-        <ServiceWorkerRegister
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>
