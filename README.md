@@ -161,7 +161,7 @@ npx prisma migrate deploy
 ```
 
 Only baseline migrations whose effects `db pull --print` actually shows, and
-check each one individually — a migration that adds a column fails the same way
+check each one individually  a migration that adds a column fails the same way
 if the column is already present.
 
 If the generated Prisma Client is stale, the symptom is type errors on models
