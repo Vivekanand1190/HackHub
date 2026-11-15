@@ -193,10 +193,10 @@ export default function WorkspaceDashboard({
 
       if (res.ok) {
         onTeamUpdate({ githubRepo: gitInput });
-        alert('GitHub repository URL successfully integrated!');
+        toast({ title: 'Repository linked', variant: 'success' });
         fetchGitSummary();
       } else {
-        alert('Failed to save GitHub repo URL.');
+        toast({ title: 'Could not save repository', variant: 'error' });
       }
     } catch (err) {
       console.error('Git integration failed:', err);
@@ -270,7 +270,7 @@ export default function WorkspaceDashboard({
   // 4. Shop Item Purchase
   const buyShopItem = async (itemId: string, cost: number) => {
     if (currentUserXp < cost) {
-      alert('Insufficient XP to purchase this item! Solve tasks or trigger Copilot scans to earn XP.');
+      toast({ title: 'Not enough XP', description: 'Solve tasks or run Copilot scans to earn more.', variant: 'error' });
       return;
     }
 
@@ -294,14 +294,14 @@ export default function WorkspaceDashboard({
         const data = await res.json();
         onUserXpUpdate(data.newXp);
         onTeamUpdate({ unlockedAvatars: data.unlocked });
-        alert(`Successfully unlocked: "${shopItems.find(s => s.id === itemId)?.name}"!`);
+        toast({ title: 'Unlocked', description: shopItems.find(s => s.id === itemId)?.name, variant: 'success' });
       } else {
         const errorData = await res.json();
-        alert(`Purchase failed: ${errorData.error || 'Server error'}`);
+        toast({ title: 'Purchase failed', description: errorData.error || 'Server error', variant: 'error' });
       }
     } catch (err) {
       console.error('Shop purchase failed:', err);
-      alert('Connection error during shop transaction.');
+      toast({ title: 'Connection error', description: 'The shop could not be reached.', variant: 'error' });
     } finally {
       setBuyingItem(null);
     }

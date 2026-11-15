@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from './ui/Toast';
 import { Award, CheckCircle, Star, MessageSquare, ShieldCheck, Send, Layers } from 'lucide-react';
 import { apiUrl } from '../utils/api';
 
@@ -20,6 +21,7 @@ interface Evaluation {
 }
 
 export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
+  const { toast } = useToast();
   const [pitchScore, setPitchScore] = useState(85);
   const [codeScore, setCodeScore] = useState(90);
   const [innovationScore, setInnovationScore] = useState(88);
@@ -76,11 +78,11 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
       });
 
       if (res.ok) {
-        alert('Judge evaluation submitted successfully!');
+        toast({ title: 'Evaluation submitted', variant: 'success' });
         setComments('');
         fetchJudgeScores();
       } else {
-        alert('Failed to submit judge score.');
+        toast({ title: 'Could not submit score', variant: 'error' });
       }
     } catch (err) {
       console.error('Error submitting judge score:', err);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from './ui/Toast';
 import { Vote, Plus, CheckCircle, BarChart2, X } from 'lucide-react';
 import { apiUrl } from '../utils/api';
 
@@ -22,6 +23,7 @@ interface TeamPollsProps {
 }
 
 export default function TeamPolls({ teamId, userId = '' }: TeamPollsProps) {
+  const { toast } = useToast();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [question, setQuestion] = useState('');
@@ -65,7 +67,7 @@ export default function TeamPolls({ teamId, userId = '' }: TeamPollsProps) {
         fetchPolls();
       } else {
         const errData = await res.json();
-        alert(errData.error || 'Failed to submit vote');
+        toast({ title: 'Vote not counted', description: errData.error || 'Failed to submit vote', variant: 'error' });
       }
     } catch (err) {
       console.error('Vote failed:', err);

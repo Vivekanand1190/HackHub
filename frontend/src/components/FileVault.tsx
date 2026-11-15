@@ -1,4 +1,5 @@
 import { API_BASE } from '../utils/api';
+import { useToast } from './ui/Toast';
 import React, { useState, useRef } from 'react';
 import { 
   FolderOpen, 
@@ -40,6 +41,7 @@ interface FileVaultProps {
 }
 
 export default function FileVault({ socket, teamId, user, messages }: FileVaultProps) {
+  const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -83,7 +85,7 @@ export default function FileVault({ socket, teamId, user, messages }: FileVaultP
     // 500MB Limit check
     const limit500MB = 500 * 1024 * 1024;
     if (selectedFile.size > limit500MB) {
-      alert('File size exceeds the 500MB limit! Please select a smaller file.');
+      toast({ title: 'File too large', description: 'The limit is 500MB. Pick a smaller file.', variant: 'error' });
       return;
     }
 
@@ -128,13 +130,13 @@ export default function FileVault({ socket, teamId, user, messages }: FileVaultP
           console.error('Failed to parse upload response', err);
         }
       } else {
-        alert('File upload failed: ' + xhr.statusText);
+        toast({ title: 'Upload failed', description: xhr.statusText, variant: 'error' });
       }
       setUploading(false);
     };
 
     xhr.onerror = () => {
-      alert('Upload failed due to connection error.');
+      toast({ title: 'Upload failed', description: 'Connection error while uploading.', variant: 'error' });
       setUploading(false);
     };
 

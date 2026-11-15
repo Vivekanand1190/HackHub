@@ -1,4 +1,5 @@
 import { API_BASE } from '../utils/api';
+import { useToast } from './ui/Toast';
 import { copyText } from '../utils/clipboard';
 import React, { useState } from 'react';
 import { 
@@ -40,6 +41,7 @@ interface CopilotPanelProps {
 type TabType = 'coach' | 'playground' | 'audit';
 
 export default function CopilotPanel({ teamId, initialState, onScanComplete }: CopilotPanelProps) {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('coach');
   const [analysis, setAnalysis] = useState(initialState || {
     suggestions: [],
@@ -126,7 +128,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
       });
 
       if (res.ok) {
-        alert(`Successfully added to Kanban tasks: "${suggestionText}"`);
+        toast({ title: 'Added to Kanban', description: suggestionText, variant: 'success' });
       }
     } catch (err) {
       console.error('Failed to add suggestion to Kanban:', err);
@@ -137,7 +139,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
 
   const executePlaygroundTool = async () => {
     if (!playgroundInput.trim()) {
-      alert('Please enter some input text first.');
+      toast({ title: 'Nothing to scan', description: 'Enter some text or paste a snippet first.', variant: 'error' });
       return;
     }
     setPlaygroundLoading(true);
@@ -186,7 +188,7 @@ export default function CopilotPanel({ teamId, initialState, onScanComplete }: C
         const data = await res.json();
         setAuditResults(data);
       } else {
-        alert('Failed to execute code audit scan.');
+        toast({ title: 'Audit failed', description: 'The scan could not be completed.', variant: 'error' });
       }
     } catch (err) {
       console.error('Audit failed:', err);

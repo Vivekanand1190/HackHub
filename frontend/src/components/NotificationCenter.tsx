@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from './ui/Toast';
 import { Bell, Check, CheckCheck, Settings, ExternalLink, MessageSquare, CheckSquare, Calendar, Award, Volume2, Megaphone } from 'lucide-react';
 import { Socket } from 'socket.io-client';
 import { API_BASE } from '../utils/api';
@@ -27,6 +28,7 @@ interface NotificationCenterProps {
 }
 
 export default function NotificationCenter({ socket, onNavigate }: NotificationCenterProps) {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'notifications' | 'preferences'>('notifications');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -136,7 +138,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
         body: JSON.stringify(preferences)
       });
       if (res.ok) {
-        alert('Notification preferences saved!');
+        toast({ title: 'Preferences saved', variant: 'success' });
       }
     } catch (err) {
       console.error('Failed to save preferences:', err);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useToast } from './ui/Toast';
 import { 
   Monitor, 
   MonitorOff, 
@@ -27,6 +28,7 @@ interface ScreenSharePanelProps {
 }
 
 export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePanelProps) {
+  const { toast } = useToast();
   const [sharing, setSharing] = useState(false);
   const [shareType, setShareType] = useState<'full' | 'half'>('full');
   
@@ -108,7 +110,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
         setActionLogs(prev => [...prev, 'System: Remote control access GRANTED. You are now controlling their screen.']);
       } else {
         setActionLogs(prev => [...prev, 'System: Remote control access DENIED by the presenter.']);
-        alert('Presenter denied your remote control request.');
+        toast({ title: 'Request denied', description: 'The presenter declined remote control.', variant: 'error' });
       }
     });
 

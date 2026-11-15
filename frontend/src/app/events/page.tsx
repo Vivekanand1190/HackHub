@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../components/ui/Toast';
 import Link from 'next/link';
 import { Calendar, Trophy, Users, Plus, Award, Tag, Sparkles, ArrowRight } from 'lucide-react';
 import { API_BASE } from '../../utils/api';
 
 export default function EventsPage() {
+  const { toast } = useToast();
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -62,7 +64,7 @@ export default function EventsPage() {
         setDescription('');
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to create event');
+        toast({ title: 'Could not create event', description: err.error || 'Failed to create event', variant: 'error' });
       }
     } catch (err) {
       console.error('Create error:', err);
