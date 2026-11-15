@@ -25,7 +25,22 @@ app.use(
   })
 );
 
-// CORS — restrict to known frontend origins instead of '*'
+// CORS — restrict to known frontend origins instead of '*'.
+//
+// A rejected origin fails invisibly in the browser: no CORS header, no detail,
+// which looks exactly like the backend being unreachable. Name the origin that
+// was turned away so the backend console explains it.
+app.use((req, _res, next) => {
+  const origin = req.headers.origin;
+  if (origin && !config.corsOrigins.includes(origin)) {
+    console.warn(
+      `[cors] blocked origin "${origin}" — add it to CORS_ORIGINS in backend/.env ` +
+        `(currently: ${config.corsOrigins.join(', ')}).`
+    );
+  }
+  next();
+});
+
 app.use(
   cors({
     origin: config.corsOrigins,
@@ -63,6 +78,19 @@ const io = new Server(server, {
   cors: {
     origin: config.corsOrigins,
     methods: ['GET', 'POST'],
+  },
+  // The socket handshake never passes through the express middleware above, so
+  // log a blocked origin here too. Returning true leaves the actual decision to
+  // the CORS layer, so this only reports.
+  allowRequest: (req, callback) => {
+    const origin = req.headers.origin;
+    if (origin && !config.corsOrigins.includes(origin)) {
+      console.warn(
+        `[cors] blocked socket handshake from origin "${origin}" — add it to ` +
+          `CORS_ORIGINS in backend/.env (currently: ${config.corsOrigins.join(', ')}).`
+      );
+    }
+    callback(null, true);
   },
 });
 

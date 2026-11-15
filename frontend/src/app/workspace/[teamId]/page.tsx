@@ -99,6 +99,7 @@ export default function WorkspacePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [huddleCount, setHuddleCount] = useState(0);
+  const [socketConnected, setSocketConnected] = useState(false);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -134,7 +135,17 @@ export default function WorkspacePage() {
         });
 
         if (!res.ok) {
-          throw new Error('Failed to load workspace. Access denied.');
+          // Surface what actually failed. Collapsing every status into
+          // "Access denied" made a 500 look like a permissions problem and
+          // left nothing to act on.
+          let detail = '';
+          try {
+            const body = await res.json();
+            detail = body?.error || '';
+          } catch {
+            /* response was not JSON */
+          }
+          throw new Error(`${detail || res.statusText || 'Request failed'} (HTTP ${res.status})`);
         }
 
         const data = await res.json();
@@ -168,7 +179,10 @@ export default function WorkspacePage() {
         // A failed socket connection used to fail silently: presence stayed
         // empty, and anything sent over the socket was never persisted, with
         // nothing saying why. Log it plainly so the console names the cause.
+        s.on('connect', () => setSocketConnected(true));
+        s.on('disconnect', () => setSocketConnected(false));
         s.on('connect_error', (err: Error) => {
+          setSocketConnected(false);
           console.error('[socket] connection failed:', err.message);
         });
         s.on('error', (err: Error) => {
@@ -281,7 +295,11 @@ export default function WorkspacePage() {
   }
 
   if (error) {
-    const isTokenError = error.toLowerCase().includes('token') || error.toLowerCase().includes('access denied') || error.toLowerCase().includes('expired');
+    const isTokenError =
+      error.toLowerCase().includes('token') ||
+      error.toLowerCase().includes('access denied') ||
+      error.toLowerCase().includes('expired') ||
+      /HTTP (401|403)/.test(error);
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0b0b0f] text-white p-4">
         <div className="glass-panel p-6 rounded-2xl border-rose-500/30 text-center max-w-md">
@@ -304,6 +322,14 @@ export default function WorkspacePage() {
 
   return (
     <div className="flex-1 flex overflow-hidden h-screen bg-[#0b0b0f] relative">
+      {/* If the socket is down, presence, chat and live edits quietly stop
+          syncing. Say so, and name the usual cause, rather than leaving empty
+          panels with nothing to explain them. */}
+      {!socketConnected && (
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-[#ffe500] text-black border-b-4 border-black text-[11px] font-bold px-4 py-2 text-center font-mono">
+          Realtime connection lost &mdash; presence, chat and live edits are not syncing. Check the backend is running and that this page&apos;s origin is listed in the backend&apos;s CORS_ORIGINS.
+        </div>
+      )}
       {/* Mobile Sidebar overlay backdrop */}
       {sidebarOpen && (
         <div 
