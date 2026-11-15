@@ -32,6 +32,8 @@ import {
 import { getSocket, disconnectSocket } from '../../../utils/socket';
 import { apiUrl } from '../../../utils/api';
 import { copyText } from '../../../utils/clipboard';
+import { downloadWithAuth } from '../../../utils/download';
+import { useToast } from '../../../components/ui/Toast';
 import WorkspaceDashboard from '../../../components/WorkspaceDashboard';
 import ChatWindow from '../../../components/ChatWindow';
 import CodeEditor from '../../../components/CodeEditor';
@@ -47,6 +49,7 @@ import VoiceHuddlePanel from '@/components/VoiceHuddlePanel';
 import NotificationCenter from '@/components/NotificationCenter';
 
 export default function WorkspacePage() {
+  const { toast } = useToast();
   const params = useParams();
   const router = useRouter();
   const teamId = params.teamId as string;
@@ -779,8 +782,16 @@ export default function WorkspacePage() {
           onRunCopilotScan={() => {
             setActiveTab('copilot');
           }}
-          onExportZip={() => {
-            window.location.href = apiUrl(`/api/teams/${teamId}/export/zip`);
+          onExportZip={async () => {
+            const result = await downloadWithAuth(
+              apiUrl(`/api/teams/${teamId}/export/zip`),
+              `${teamName || 'workspace'}_export.zip`,
+            );
+            if (result.ok) {
+              toast({ title: 'Export started', description: result.filename, variant: 'success' });
+            } else {
+              toast({ title: 'Export failed', description: result.error, variant: 'error' });
+            }
           }}
         />
 

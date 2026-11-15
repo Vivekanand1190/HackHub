@@ -1,4 +1,4 @@
-import { API_BASE } from '../utils/api';
+import { API_BASE, apiUrl } from '../utils/api';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
@@ -61,6 +61,8 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
   const [uploading, setUploading] = useState(false);
   const [activeChannel, setActiveChannel] = useState<'general' | 'development' | 'design'>('general');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Message[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>({});
   const [pinnedMessages, setPinnedMessages] = useState<Array<{ id: string; text: string; author: string }>>([]);
 
@@ -315,18 +317,65 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
     });
   };
 
+  // Debounced full-history search.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem('hackhub_token');
+        const res = await fetch(
+          apiUrl(`/api/teams/${teamId}/messages/search?q=${encodeURIComponent(q)}&channel=${activeChannel}`),
+          { headers: token ? { Authorization: `Bearer ${token}` } : undefined, signal: controller.signal },
+        );
+        if (!res.ok) throw new Error(`Search failed (HTTP ${res.status})`);
+        const rows = await res.json();
+        setSearchResults(
+          rows.map((m: any): Message => ({
+            id: m.id,
+            text: m.text,
+            system: false,
+            user: m.author ? { name: m.author, role: m.role || 'Developer' } : null,
+            userId: m.userId,
+            attachment: m.attachment ?? null,
+            timestamp: m.timestamp,
+            channel: m.channel,
+            parentId: m.parentId,
+            editedAt: m.editedAt ?? null,
+            reactions: m.reactions ?? {},
+          })),
+        );
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('Message search failed:', err);
+          setSearchResults([]);
+        }
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery, activeChannel, teamId]);
+
   // Filter messages by channel & top-level (parentId === null or undefined)
   const topLevelMessages = messages.filter(m => !m.parentId && (m.channel === activeChannel || m.system || !m.channel));
 
-  const filteredMessages = topLevelMessages.filter(msg => {
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchText = (msg.text || '').toLowerCase().includes(q);
-      const matchUser = (msg.user?.name || '').toLowerCase().includes(q);
-      if (!matchText && !matchUser) return false;
-    }
-    return true;
-  });
+  // Search runs against the team's whole history on the server, not just the
+  // 200 messages this workspace happened to load. Below two characters we just
+  // show the channel as usual.
+  const isSearching = searchQuery.trim().length >= 2;
+  const filteredMessages = isSearching ? (searchResults ?? []) : topLevelMessages;
 
   const matchingMembers = teamMembers.filter(m => m.name.toLowerCase().includes(mentionFilter));
 
@@ -382,7 +431,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#0b0b0f]">
           {filteredMessages.length === 0 ? (
             <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
-              {searchQuery ? 'No messages match search query.' : 'No conversations in this channel yet. Send a message to start!'}
+              {searching ? 'Searching all messages…' : searchQuery ? 'No messages match search query.' : 'No conversations in this channel yet. Send a message to start!'}
             </div>
           ) : (
             filteredMessages.map((msg) => {

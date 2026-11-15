@@ -20,6 +20,8 @@ import {
   Flag
 } from 'lucide-react';
 import { apiUrl } from '../utils/api';
+import { downloadWithAuth } from '../utils/download';
+import { useToast } from './ui/Toast';
 import TeamPolls from './TeamPolls';
 import Leaderboard from './Leaderboard';
 
@@ -96,6 +98,7 @@ export default function WorkspaceDashboard({
   onTeamUpdate,
   onUserXpUpdate
 }: WorkspaceDashboardProps) {
+  const { toast } = useToast();
   const completedTasks = tasks.filter(t => t.column === 'done').length;
   const totalTasks = tasks.length;
   const taskProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -462,14 +465,24 @@ export default function WorkspaceDashboard({
               <span className="text-xl font-mono font-extrabold text-indigo-400 tracking-widest">{joinCode}</span>
             </div>
 
-            <a
-              href={apiUrl(`/api/teams/${teamId}/export/zip`)}
-              download
+            <button
+              type="button"
+              onClick={async () => {
+                const result = await downloadWithAuth(
+                  apiUrl(`/api/teams/${teamId}/export/zip`),
+                  `${teamName || 'workspace'}_export.zip`,
+                );
+                if (result.ok) {
+                  toast({ title: 'Export started', description: result.filename, variant: 'success' });
+                } else {
+                  toast({ title: 'Export failed', description: result.error, variant: 'error' });
+                }
+              }}
               className="glass-button text-xs py-2.5! px-3.5! flex items-center gap-1.5 font-bold"
               title="Download Project ZIP Archive"
             >
               <Download className="h-4 w-4" /> Export Zip
-            </a>
+            </button>
           </div>
         </div>
       </div>
