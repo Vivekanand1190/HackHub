@@ -49,6 +49,7 @@ import JudgeView from '../../../components/JudgeView';
 import VoiceHuddlePanel from '@/components/VoiceHuddlePanel';
 import NotificationCenter from '@/components/NotificationCenter';
 import ActivityFeed from '@/components/ActivityFeed';
+import type { JumpTarget } from '@/components/CommandPalette';
 import ShortcutsDialog from '@/components/ShortcutsDialog';
 
 export default function WorkspacePage() {
@@ -107,6 +108,7 @@ export default function WorkspacePage() {
   const [huddleCount, setHuddleCount] = useState(0);
   const [socketConnected, setSocketConnected] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [jumpTarget, setJumpTarget] = useState<JumpTarget | null>(null);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -724,6 +726,8 @@ export default function WorkspacePage() {
               userName={user?.name || ''}
               initialMessages={messages}
               teamMembers={members}
+              focusMessage={jumpTarget}
+              onFocusHandled={() => setJumpTarget(null)}
             />
           )}
 
@@ -815,6 +819,8 @@ export default function WorkspacePage() {
         <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
         <CommandPalette
+          teamId={teamId}
+          onJumpToMessage={(target) => { setJumpTarget(target); setActiveTab('chat'); }}
           isOpen={cmdPaletteOpen}
           onClose={() => setCmdPaletteOpen(false)}
           onSelectTab={(tab) => setActiveTab(tab as TabType)}

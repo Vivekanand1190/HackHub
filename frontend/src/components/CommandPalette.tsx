@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { apiUrl } from '../utils/api';
 import { 
   Search, 
   LayoutDashboard, 
@@ -15,10 +16,23 @@ import {
   Sparkles
 } from 'lucide-react';
 
+export interface JumpTarget {
+  id: string;
+  text: string;
+  channel?: string;
+  author: string;
+  role: string;
+  timestamp: string;
+  attachment?: unknown;
+  reactions?: Record<string, string[]>;
+  editedAt?: string | null;
+  parentId?: string | null;
+}
+
 interface CommandItem {
   id: string;
   title: string;
-  category: 'Navigation' | 'Actions';
+  category: 'Navigation' | 'Actions' | 'Messages';
   icon: React.ElementType;
   action: () => void;
   badge?: string;
@@ -31,6 +45,9 @@ interface CommandPaletteProps {
   onRunCopilotScan?: () => void;
   onOpenShop?: () => void;
   onExportZip?: () => void;
+  /** Required for content search; without it the palette stays navigation-only. */
+  teamId?: string;
+  onJumpToMessage?: (target: JumpTarget) => void;
 }
 
 export default function CommandPalette({
@@ -39,10 +56,20 @@ export default function CommandPalette({
   onSelectTab,
   onRunCopilotScan,
   onOpenShop,
-  onExportZip
+  onExportZip,
+  teamId,
+  onJumpToMessage
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [contentResults, setContentResults] = useState<CommandItem[]>([]);
+  const [searching, setSearching] = useState(false);
+  // Latest callbacks, so the debounced search effect can stay keyed on
+  // [query, isOpen, teamId] instead of re-firing on every parent render.
+  const callbacksRef = useRef({ jump: onJumpToMessage, close: onClose });
+  useEffect(() => {
+    callbacksRef.current = { jump: onJumpToMessage, close: onClose };
+  });
 
   const commands: CommandItem[] = [
     {
@@ -137,10 +164,78 @@ export default function CommandPalette({
     }
   ];
 
-  const filteredCommands = commands.filter(c => 
-    c.title.toLowerCase().includes(query.toLowerCase()) || 
-    c.category.toLowerCase().includes(query.toLowerCase())
-  );
+  // Content search runs against the team's whole message history. Only
+  // messages are included: they are the one result type that can land on an
+  // exact item. Snippet and note results would open a panel without opening
+  // the thing itself, which is a fake affordance.
+  useEffect(() => {
+    const q = query.trim();
+    if (!isOpen || !teamId || q.length < 2) {
+      setContentResults([]);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem('hackhub_token');
+        const res = await fetch(
+          apiUrl(`/api/teams/${teamId}/messages/search?q=${encodeURIComponent(q)}`),
+          { headers: token ? { Authorization: `Bearer ${token}` } : undefined, signal: controller.signal },
+        );
+        if (!res.ok) throw new Error(`search ${res.status}`);
+        const rows = await res.json();
+        setContentResults(
+          (Array.isArray(rows) ? rows : []).slice(0, 8).map((m: any): CommandItem => ({
+            id: `msg-${m.id}`,
+            title: (m.text || '(attachment)').slice(0, 80),
+            category: 'Messages',
+            icon: Search,
+            badge: m.channel ? `#${m.channel}` : 'Chat',
+            action: () => {
+              const jump = callbacksRef.current.jump;
+              if (jump) {
+                jump({
+                  id: m.id,
+                  text: m.text || '',
+                  channel: m.channel,
+                  author: m.author || 'Teammate',
+                  role: m.role || 'Developer',
+                  timestamp: m.timestamp,
+                  attachment: m.attachment ?? null,
+                  reactions: m.reactions ?? {},
+                  editedAt: m.editedAt ?? null,
+                  parentId: m.parentId ?? null,
+                });
+              }
+              callbacksRef.current.close();
+            },
+          })),
+        );
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') setContentResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, isOpen, teamId]);
+
+  const filteredCommands = query.trim()
+    ? [
+        ...commands.filter(c =>
+          c.title.toLowerCase().includes(query.toLowerCase()) ||
+          c.category.toLowerCase().includes(query.toLowerCase()),
+        ),
+        ...contentResults,
+      ]
+    : commands;
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -208,7 +303,7 @@ export default function CommandPalette({
         <div className="max-h-96 overflow-y-auto p-2 flex flex-col gap-1 bg-[#0b0b0f]">
           {filteredCommands.length === 0 ? (
             <div className="p-6 text-center text-slate-500 font-mono text-xs">
-              No matching commands found.
+              {searching ? 'Searching messages…' : 'No matching commands found.'}
             </div>
           ) : (
             filteredCommands.map((item, idx) => {

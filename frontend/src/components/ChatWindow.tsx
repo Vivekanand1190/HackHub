@@ -1,4 +1,5 @@
 import { API_BASE, apiUrl } from '../utils/api';
+import type { JumpTarget } from './CommandPalette';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
@@ -52,9 +53,12 @@ interface ChatWindowProps {
   userName: string;
   initialMessages: Message[];
   teamMembers?: TeamMember[];
+  /** Set by the command palette to land on a specific message. */
+  focusMessage?: JumpTarget | null;
+  onFocusHandled?: () => void;
 }
 
-export default function ChatWindow({ socket, teamId, userId, userName, initialMessages, teamMembers = [] }: ChatWindowProps) {
+export default function ChatWindow({ socket, teamId, userId, userName, initialMessages, teamMembers = [], focusMessage = null, onFocusHandled }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -63,6 +67,8 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Message[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const handledFocusRef = useRef<string | null>(null);
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>({});
   const [pinnedMessages, setPinnedMessages] = useState<Array<{ id: string; text: string; author: string }>>([]);
 
@@ -317,6 +323,47 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
     });
   };
 
+  // Land on a message chosen from the command palette: switch to its channel,
+  // make sure it is in the list even when it predates the loaded window, then
+  // scroll to it and flash a highlight.
+  useEffect(() => {
+    if (!focusMessage) return;
+    if (handledFocusRef.current === focusMessage.id) return;
+    handledFocusRef.current = focusMessage.id;
+
+    const ch = focusMessage.channel;
+    if (ch === 'general' || ch === 'development' || ch === 'design') {
+      setActiveChannel(ch);
+    }
+
+    const asMessage: Message = {
+      id: focusMessage.id,
+      text: focusMessage.text,
+      system: false,
+      user: focusMessage.author ? { name: focusMessage.author, role: focusMessage.role } : null,
+      attachment: (focusMessage.attachment as Attachment) ?? null,
+      timestamp: focusMessage.timestamp,
+      channel: focusMessage.channel,
+      parentId: focusMessage.parentId ?? null,
+      editedAt: focusMessage.editedAt ?? null,
+      reactions: focusMessage.reactions ?? {},
+    };
+
+    setMessages(prev => (prev.some(m => m.id === focusMessage.id) ? prev : [...prev, asMessage]));
+
+    const scrollTimer = setTimeout(() => {
+      document.getElementById(`msg-${focusMessage.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      setHighlightId(focusMessage.id);
+      onFocusHandled?.();
+    }, 150);
+    const clearTimer = setTimeout(() => setHighlightId(null), 2600);
+
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(clearTimer);
+    };
+  }, [focusMessage, onFocusHandled]);
+
   // Debounced full-history search.
   useEffect(() => {
     const q = searchQuery.trim();
@@ -452,7 +499,10 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
               return (
                 <div 
                   key={msg.id} 
-                  className={`flex flex-col max-w-[85%] group ${isMe ? 'self-end items-end' : 'self-start items-start'}`}
+                  id={`msg-${msg.id}`}
+                  className={`flex flex-col max-w-[85%] group ${isMe ? 'self-end items-end' : 'self-start items-start'} ${
+                    highlightId === msg.id ? 'ring-2 ring-[#ff8a5b] ring-offset-2 ring-offset-[#0b0b0f]' : ''
+                  }`}
                 >
                   <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold mb-0.5 px-1 font-mono">
                     <span>{msg.user?.name} ({msg.user?.role})</span>
