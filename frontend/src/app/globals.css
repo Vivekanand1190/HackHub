@@ -1,13 +1,143 @@
 @import "tailwindcss";
 
 /* ============================================================
-   HackHub — Neo-Brutalist design system
-   Flat colours, hard 3px borders, hard offset shadows,
-   zero radius, zero blur, zero glass, zero glow.
+   HackHub — Design system · Direction 1 "Refined Brutalism"
+   Phase 3 · step 1 — tokens and global styles
+
+   Changes in this step:
+   1. Semantic colour roles replace the old arbitrary palette remap.
+   2. The neutral ramp is retuned to a lifted graphite scale, so every
+      existing `bg-slate-*` / `text-slate-*` lands on-system.
+   3. Accent families are mapped to *roles* (primary / link / success /
+      danger / warn) instead of to arbitrary hues.
+   4. Focus-visible and prefers-reduced-motion now exist (both were absent).
+   5. The four CSS primitives (.glass-panel / -button / -secondary / -input)
+      are restyled, which restyles 164 usages across the 16 components
+      without editing any of them.
+
+   TRANSITIONAL, remove as components migrate (steps 2-4):
+   - the `[class*="rounded"]` and `[class*="shadow"]` guards
+   - the max-width:1023px responsive net
+   - the accent-family remap in @theme
    ============================================================ */
 
 @theme {
-  /* 1. No rounded corners anywhere */
+  /* ---- 1. semantic colour roles -------------------------------------
+     These generate utilities: bg-paper, text-ink, border-line, bg-primary… */
+  --color-paper: #191c24;
+  --color-surface: #21252f;
+  --color-surface-2: #2a2f3b;
+  --color-line: #39404e;
+  --color-line-strong: #4a5263;
+  --color-ink: #f4f6fa;
+  --color-ink-dim: #aeb6c6;
+  --color-primary: #ff8a5b;      /* coral — actions, active state */
+  --color-on-primary: #2a1006;   /* text on coral, 7.69:1 */
+  --color-success: #3ddcb4;      /* mint — live / good */
+  --color-warn: #ffc46b;
+  --color-danger: #ff6b6b;
+  --color-link: #7aa2ff;
+
+  /* ---- 2. neutral ramp -> graphite ---------------------------------- */
+  --color-slate-50: #ffffff;
+  --color-slate-100: #f4f6fa;
+  --color-slate-200: #e2e7f0;
+  --color-slate-300: #c9d0dc;
+  --color-slate-400: #aeb6c6;
+  --color-slate-500: #aeb6c6;   /* was 4.13:1 — now 8.36:1 on paper */
+  --color-slate-600: #4a5263;
+  --color-slate-700: #39404e;
+  --color-slate-800: #2a2f3b;
+  --color-slate-900: #191c24;
+  --color-slate-950: #14161c;
+
+  --color-gray-100: #f4f6fa;
+  --color-gray-400: #aeb6c6;
+  --color-gray-500: #aeb6c6;
+  --color-gray-700: #39404e;
+  --color-gray-800: #2a2f3b;
+  --color-gray-900: #191c24;
+
+  --color-zinc-800: #2a2f3b;
+  --color-zinc-900: #191c24;
+  --color-zinc-950: #14161c;
+
+  /* ---- 3. accent families -> semantic roles (transitional) ---------- */
+  /* Indigo / violet / purple / fuchsia / pink historically carried the
+     brand accent, so they map to primary (coral). */
+  --color-indigo-50: #2a1a14;
+  --color-indigo-100: #3d2418;
+  --color-indigo-200: #57301d;
+  --color-indigo-300: #7a4126;
+  --color-indigo-400: #ff8a5b;
+  --color-indigo-500: #a34e2e;
+  --color-indigo-600: #8f452a;
+  --color-indigo-700: #7a3a24;
+  --color-indigo-800: #8f452a;
+  --color-indigo-900: #5c2d1b;
+  --color-indigo-950: #2a1006;
+
+  --color-violet-300: #ffab86;
+  --color-violet-400: #ff8a5b;
+  --color-violet-500: #a34e2e;
+  --color-violet-600: #8f452a;
+  --color-violet-700: #7a3a24;
+
+  --color-purple-300: #ffab86;
+  --color-purple-400: #ff8a5b;
+  --color-purple-500: #a34e2e;
+  --color-purple-600: #8f452a;
+
+  --color-fuchsia-400: #ff8a5b;
+  --color-fuchsia-500: #a34e2e;
+
+  --color-pink-400: #ff8a5b;
+  --color-pink-500: #a34e2e;
+
+  /* Cyan / sky / blue carried links and secondary accents. */
+  --color-cyan-300: #a8c0ff;
+  --color-cyan-400: #7aa2ff;
+  --color-cyan-500: #3b5fbf;
+  --color-cyan-600: #3454a8;
+
+  --color-sky-300: #a8c0ff;
+  --color-sky-400: #7aa2ff;
+  --color-sky-500: #3b5fbf;
+  --color-sky-600: #3454a8;
+
+  --color-blue-300: #a8c0ff;
+  --color-blue-400: #7aa2ff;
+  --color-blue-500: #3b5fbf;
+  --color-blue-600: #3454a8;
+
+  /* Emerald / green carried success and "live" states. */
+  --color-emerald-300: #8df0d6;
+  --color-emerald-400: #3ddcb4;
+  --color-emerald-500: #1a7a65;
+  --color-emerald-600: #176b59;
+
+  --color-green-300: #8df0d6;
+  --color-green-400: #3ddcb4;
+  --color-green-500: #1a7a65;
+
+  /* Amber / orange carried warnings. */
+  --color-amber-300: #ffd9a3;
+  --color-amber-400: #ffc46b;
+  --color-amber-500: #8f5a1a;
+
+  --color-orange-400: #ffc46b;
+  --color-orange-500: #8f5a1a;
+
+  /* Rose / red carried errors. */
+  --color-rose-300: #ffa3a3;
+  --color-rose-400: #ff6b6b;
+  --color-rose-500: #b03a3a;
+  --color-rose-600: #9e3333;
+
+  --color-red-400: #ff6b6b;
+  --color-red-500: #b03a3a;
+
+  /* ---- 4. radius: zero everywhere ---- */
   --radius-xs: 0px;
   --radius-sm: 0px;
   --radius-md: 0px;
@@ -17,7 +147,7 @@
   --radius-3xl: 0px;
   --radius-4xl: 0px;
 
-  /* 2. No blur — glass becomes flat */
+  /* ---- 5. blur: none ---- */
   --blur-xs: 0px;
   --blur-sm: 0px;
   --blur-md: 0px;
@@ -26,196 +156,235 @@
   --blur-2xl: 0px;
   --blur-3xl: 0px;
 
-  /* 3. Remap the app's cool accent families to loud brutalism flats */
-  --color-indigo-50: #fffbe0;
-  --color-indigo-100: #fff6b8;
-  --color-indigo-200: #ffef85;
-  --color-indigo-300: #ffe94d;
-  --color-indigo-400: #ffe500;
-  --color-indigo-500: #ffe500;
-  --color-indigo-600: #e0c900;
-  --color-indigo-700: #b3a000;
-  --color-indigo-800: #7a6d00;
-  --color-indigo-900: #4d4400;
-  --color-indigo-950: #2b2600;
+  /* ---- 6. semantic type scale (used by the primitives in step 2) ---- */
+  --text-label: 12px;
+  --text-body: 14px;
+  --text-body-lg: 16px;
+  --text-title: 20px;
+  --text-h2: 28px;
+  --text-h1: 40px;
+  --text-display: 56px;
 
-  --color-violet-300: #ff8fb6;
-  --color-violet-400: #ff4d8d;
-  --color-violet-500: #ff4d8d;
-  --color-violet-600: #e63e7b;
-  --color-violet-700: #b32f60;
-
-  --color-purple-300: #ff8fb6;
-  --color-purple-400: #ff4d8d;
-  --color-purple-500: #ff4d8d;
-  --color-purple-600: #e63e7b;
-
-  --color-fuchsia-400: #ff4d8d;
-  --color-fuchsia-500: #ff4d8d;
-
-  --color-cyan-300: #86a6ff;
-  --color-cyan-400: #4d7cff;
-  --color-cyan-500: #4d7cff;
-  --color-cyan-600: #3a5fd9;
-
-  --color-sky-300: #86a6ff;
-  --color-sky-400: #4d7cff;
-  --color-sky-500: #4d7cff;
-  --color-sky-600: #3a5fd9;
-
-  --color-blue-400: #4d7cff;
-  --color-blue-500: #4d7cff;
-
-  --color-emerald-300: #d0ff85;
-  --color-emerald-400: #b8ff3c;
-  --color-emerald-500: #b8ff3c;
-  --color-emerald-600: #93cc30;
-
-  --color-green-400: #b8ff3c;
-  --color-green-500: #b8ff3c;
-
-  --color-amber-300: #ffa06b;
-  --color-amber-400: #ff6b35;
-  --color-amber-500: #ff6b35;
-
-  --color-orange-400: #ff6b35;
-  --color-orange-500: #ff6b35;
-
-  --color-rose-300: #ff7a7a;
-  --color-rose-400: #ff2d2d;
-  --color-rose-500: #ff2d2d;
-  --color-rose-600: #d92020;
-
-  --color-pink-400: #ff4d8d;
-  --color-pink-500: #ff4d8d;
+  /* ---- 7. motion ---- */
+  --ease-out-soft: cubic-bezier(0.2, 0.6, 0.2, 1);
 }
 
 :root {
-  /* The --font-* family variables are supplied by next/font/local in layout.tsx.
-     Defining them here as well would collide with the generated class on <body>
-     (equal specificity, so which one wins depends on stylesheet order) and could
-     silently pin every heading back to the system fallback. */
-  --paper: #0b0b0f;
-  --surface: #16161d;
-  --ink: #f5f1e6;
-  --brut-yellow: #ffe500;
-  --brut-pink: #ff4d8d;
-  --brut-blue: #4d7cff;
-  --brut-lime: #b8ff3c;
+  /* Aliases for the hand-written CSS below. The --font-* families are
+     supplied by next/font/local in layout.tsx — do not define them here. */
+  --paper: var(--color-paper);
+  --surface: var(--color-surface);
+  --ink: var(--color-ink);
+  --ink-dim: var(--color-ink-dim);
+  --line: var(--color-line);
+  --line-strong: var(--color-line-strong);
+  --primary: var(--color-primary);
+  --on-primary: var(--color-on-primary);
+  --success: var(--color-success);
+  --danger: var(--color-danger);
+  --dur-fast: 120ms;
+  --dur: 160ms;
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
 }
 
+/* ============================================================
+   Base typography
+   ============================================================ */
 body {
   background-color: var(--paper);
   background-image: none;
   color: var(--ink);
   font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-archivo-black), var(--font-space-grotesk), sans-serif;
   letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
-/* ---- Panels: replace glassmorphism with hard brutalist slabs ---- */
+/* ============================================================
+   Accessibility — both of these were entirely absent before
+   ============================================================ */
+
+/* A visible focus ring on every keyboard-focusable element.
+   Uses `outline` rather than `box-shadow` so the transitional
+   [class*="shadow"] guard below cannot swallow it. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Honour the OS "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   Primitives — restyling these updates 164 usages across the
+   components without touching a single component file.
+   ============================================================ */
+
+/* Panel: flat by default. Elevation is an interaction affordance,
+   not a default decoration — that was audit problem 5. */
 .glass-panel {
   background: var(--surface);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 3px solid var(--ink);
-  box-shadow: 6px 6px 0 var(--brut-yellow);
-  transition: transform 80ms linear, box-shadow 80ms linear;
+  border: 1px solid var(--line);
+  box-shadow: none;
+  transition: border-color var(--dur-fast) var(--ease);
   position: relative;
   overflow: visible;
 }
 .glass-panel::after { content: none; }
 
+.glass-panel-hover {
+  transition: border-color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
 .glass-panel-hover:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0 var(--brut-yellow);
-  border-color: var(--ink);
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
 }
 
 .glow-card::before { content: none; }
 
+/* Input: mono, high-contrast, coral focus. */
 .glass-input {
-  background: #000;
-  border: 3px solid var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
   color: var(--ink);
   border-radius: 0;
-  padding: 11px 15px;
+  padding: 10px 14px;
   outline: none;
-  font-size: 0.9rem;
+  font-size: 14px;
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  transition: border-color var(--dur-fast) var(--ease);
 }
-.glass-input:focus {
-  border-color: var(--brut-yellow);
-  box-shadow: 4px 4px 0 var(--brut-yellow);
-  background: #000;
+.glass-input:focus,
+.glass-input:focus-visible {
+  border-color: var(--primary);
+  box-shadow: none;
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  background: var(--paper);
 }
-.glass-input::placeholder { color: #8a8578; }
+.glass-input::placeholder { color: var(--ink-dim); }
 
+/* Primary button: the one place a hard offset shadow survives. */
 .glass-button {
-  background: var(--brut-yellow);
-  color: #000;
-  border: 3px solid #000;
+  background: var(--primary);
+  color: var(--on-primary);
+  border: 1px solid var(--on-primary);
   border-radius: 0;
   font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.03em;
+  font-size: 14px;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  padding: 11px 22px;
+  padding: 10px 20px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 5px 5px 0 #000;
-  transition: transform 80ms linear, box-shadow 80ms linear;
+  box-shadow: 4px 4px 0 var(--on-primary);
+  transition: transform var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease),
+              background var(--dur-fast) var(--ease);
 }
-.glass-button:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 #000; }
-.glass-button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+.glass-button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--on-primary);
+}
+.glass-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--on-primary);
+}
+.glass-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 2px 2px 0 var(--on-primary);
+}
 
+/* Secondary button: quiet, outlined. */
 .glass-button-secondary {
-  background: var(--surface);
-  border: 3px solid var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
   color: var(--ink);
   border-radius: 0;
   font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.03em;
+  font-size: 14px;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  padding: 11px 22px;
+  padding: 10px 20px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 5px 5px 0 var(--brut-pink);
-  transition: transform 80ms linear, box-shadow 80ms linear;
+  box-shadow: none;
+  transition: background var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
 }
-.glass-button-secondary:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--brut-pink); }
+.glass-button-secondary:hover {
+  background: var(--line);
+  border-color: var(--line-strong);
+}
 
-/* ---- Kill the glow / float animations ---- */
-.animate-float-slow, .animate-float-medium { animation: none; }
-.pulse-glow { animation: none; box-shadow: 6px 6px 0 var(--brut-yellow); }
-.text-glow-indigo, .text-glow-cyan { text-shadow: none; }
+/* Legacy no-op animations, kept so their class names stay valid. */
+.animate-float-slow,
+.animate-float-medium { animation: none; }
 
-/* ---- Global safety net: neutralise any lingering softness ---- */
+.pulse-glow {
+  animation: none;
+  box-shadow: none;
+}
+
+.text-glow-indigo,
+.text-glow-cyan { text-shadow: none; }
+
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 2px solid var(--paper);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-dim); }
+
+/* ============================================================
+   TRANSITIONAL GUARDS — remove in steps 2-4 as components migrate
+   ============================================================ */
+
+/* `rounded-full` is not driven by --radius-*, so it still rounds. */
 [class*="rounded"] { border-radius: 0 !important; }
+
 [class*="backdrop-blur"] {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+
+/* Kills Tailwind's soft elevation utilities. The primitives above set
+   their own shadow via a non-matching class, so they are unaffected. */
 [class*="shadow"] { box-shadow: none !important; }
 
-/* ---- Scrollbar ---- */
-::-webkit-scrollbar { width: 12px; height: 12px; }
-::-webkit-scrollbar-track { background: #000; }
-::-webkit-scrollbar-thumb { background: var(--brut-yellow); border: 3px solid #000; }
-::-webkit-scrollbar-thumb:hover { background: var(--ink); }
-
-/* ---- Responsive safety net -----------------------------------------
+/* Responsive safety net.
    Several panels use a bare 12-column grid plus fixed pixel widths and
    heights, which collapse into unusable slivers on a phone. Below the
    `lg` breakpoint (1024px) stack those grids and let the fixed panels
@@ -225,11 +394,28 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 1023px) {
   .grid-cols-12 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
 
-  /* Fixed-width side panels become full-width. */
-  .w-\[200px\], .w-\[240px\], .w-\[330px\] { width: 100% !important; }
+  .w-\[200px\],
+  .w-\[240px\],
+  .w-\[330px\] { width: 100% !important; }
 
-  /* Tall fixed-height panels are capped against the viewport. */
   .h-\[500px\] { height: min(500px, 70vh) !important; }
   .h-\[420px\] { height: min(420px, 60vh) !important; }
   .h-\[80vh\] { height: auto !important; min-height: 70vh; }
 }
+
+/* TRANSITIONAL — six usages read an accent as *text* rather than as a fill
+   (score colours, status labels). The -500/-600 shades are dark fills now, so
+   those would be unreadable on the dark background; they take the bright
+   shade instead. Removed when those components are rewritten. */
+[class*="text-indigo-500"], [class*="text-indigo-600"] { color: var(--primary); }
+[class*="text-violet-500"], [class*="text-violet-600"] { color: var(--primary); }
+[class*="text-purple-500"], [class*="text-purple-600"] { color: var(--primary); }
+[class*="text-rose-500"],   [class*="text-rose-600"]   { color: var(--danger); }
+[class*="text-red-500"]                                { color: var(--danger); }
+[class*="text-emerald-500"],[class*="text-emerald-600"]{ color: var(--success); }
+[class*="text-green-500"]                              { color: var(--success); }
+[class*="text-amber-500"],  [class*="text-amber-600"]  { color: var(--warn); }
+[class*="text-orange-500"]                             { color: var(--warn); }
+[class*="text-blue-500"],   [class*="text-blue-600"]   { color: var(--link); }
+[class*="text-cyan-500"],   [class*="text-cyan-600"]   { color: var(--link); }
+[class*="text-sky-500"],    [class*="text-sky-600"]    { color: var(--link); }
