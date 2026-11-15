@@ -1811,6 +1811,87 @@ router.post('/events/:id/schedule', authMiddleware, async (req: AuthenticatedReq
   }
 });
 
+/* ==========================================================================
+   TEAM ACTIVITY FEED
+   Aggregated from records that already exist — messages, tasks, snippets,
+   revisions, documents and polls — so it needs no new table and no migration.
+   ========================================================================== */
+router.get('/teams/:teamId/activity', authMiddleware, requireTeamMember(), async (req: AuthenticatedRequest, res) => {
+  const { teamId } = req.params;
+  const limit = Math.min(Math.max(Number(req.query.limit) || 60, 1), 200);
+
+  try {
+    const [messages, tasks, snippets, revisions, documents, polls] = await Promise.all([
+      prisma.message.findMany({
+        where: { teamId }, orderBy: { timestamp: 'desc' }, take: limit,
+        include: { user: { select: { name: true } } },
+      }),
+      prisma.task.findMany({
+        where: { teamId }, orderBy: { updatedAt: 'desc' }, take: limit,
+        include: { assignee: { select: { name: true } } },
+      }),
+      prisma.codeSnippet.findMany({
+        where: { teamId }, orderBy: { createdAt: 'desc' }, take: limit,
+        include: { user: { select: { name: true } } },
+      }),
+      prisma.snippetRevision.findMany({
+        where: { snippet: { teamId } }, orderBy: { createdAt: 'desc' }, take: limit,
+        include: { snippet: { select: { title: true } } },
+      }),
+      prisma.document.findMany({ where: { teamId }, orderBy: { updatedAt: 'desc' }, take: limit }),
+      prisma.poll.findMany({
+        where: { teamId }, orderBy: { createdAt: 'desc' }, take: limit,
+        include: { creator: { select: { name: true } } },
+      }),
+    ]);
+
+    type ActivityKind = 'message' | 'task' | 'snippet' | 'revision' | 'document' | 'poll';
+    const events: Array<{
+      id: string; kind: ActivityKind; at: string; actor: string; title: string; detail?: string;
+    }> = [];
+
+    messages.forEach((m) => {
+      events.push({
+        id: `msg-${m.id}`,
+        kind: 'message',
+        at: m.timestamp.toISOString(),
+        actor: m.system ? 'System' : (m.user?.name || 'Teammate'),
+        title: m.system ? m.text : (m.text.slice(0, 140) || (m.attachment ? 'Shared a file' : 'Message')),
+        detail: m.channel ? `#${m.channel}` : undefined,
+      });
+    });
+    tasks.forEach((t) => events.push({
+      id: `task-${t.id}`, kind: 'task', at: t.updatedAt.toISOString(),
+      actor: t.assignee?.name || 'Unassigned', title: t.title, detail: t.column,
+    }));
+    snippets.forEach((sn) => events.push({
+      id: `snippet-${sn.id}`, kind: 'snippet', at: sn.createdAt.toISOString(),
+      actor: sn.user?.name || 'Teammate', title: sn.title, detail: sn.language,
+    }));
+    revisions.forEach((rv) => events.push({
+      id: `rev-${rv.id}`, kind: 'revision', at: rv.createdAt.toISOString(),
+      actor: rv.author || 'Teammate', title: rv.snippet?.title || 'Snippet revision',
+      detail: rv.commitMessage || undefined,
+    }));
+    documents.forEach((d) => events.push({
+      id: `doc-${d.id}`, kind: 'document', at: d.updatedAt.toISOString(),
+      actor: 'Workspace', title: d.title, detail: 'note',
+    }));
+    polls.forEach((pl) => events.push({
+      id: `poll-${pl.id}`, kind: 'poll', at: pl.createdAt.toISOString(),
+      actor: pl.creator?.name || 'Teammate', title: pl.question,
+      detail: pl.closed ? 'closed' : 'open',
+    }));
+
+    events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+
+    res.json({ events: events.slice(0, limit) });
+  } catch (err) {
+    console.error('Activity feed error:', err);
+    res.status(500).json({ error: 'Failed to build activity feed' });
+  }
+});
+
 export const apiRouter = router;
 export default router;
 

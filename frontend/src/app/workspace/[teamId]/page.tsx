@@ -27,7 +27,8 @@ import {
   X,
   FileText,
   Search,
-  Headphones
+  Headphones,
+  Activity
 } from 'lucide-react';
 import { getSocket, disconnectSocket } from '../../../utils/socket';
 import { apiUrl } from '../../../utils/api';
@@ -47,6 +48,8 @@ import CommandPalette from '../../../components/CommandPalette';
 import JudgeView from '../../../components/JudgeView';
 import VoiceHuddlePanel from '@/components/VoiceHuddlePanel';
 import NotificationCenter from '@/components/NotificationCenter';
+import ActivityFeed from '@/components/ActivityFeed';
+import ShortcutsDialog from '@/components/ShortcutsDialog';
 
 export default function WorkspacePage() {
   const { toast } = useToast();
@@ -56,7 +59,7 @@ export default function WorkspacePage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  type TabType = 'dashboard' | 'chat' | 'editor' | 'whiteboard' | 'tasks' | 'copilot' | 'screenshare' | 'files' | 'notes' | 'judge' | 'huddle';
+  type TabType = 'dashboard' | 'activity' | 'chat' | 'editor' | 'whiteboard' | 'tasks' | 'copilot' | 'screenshare' | 'files' | 'notes' | 'judge' | 'huddle';
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
   // Session user details
@@ -103,12 +106,31 @@ export default function WorkspacePage() {
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [huddleCount, setHuddleCount] = useState(0);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCmdPaletteOpen(prev => !prev);
+        return;
+      }
+
+      // "?" opens the shortcut sheet — but never while typing into a field.
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable === true;
+
+      if (e.key === '?' && !typing) {
+        e.preventDefault();
+        setShortcutsOpen(prev => !prev);
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        setShortcutsOpen(false);
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -489,6 +511,17 @@ export default function WorkspacePage() {
             </button>
 
             <button
+              onClick={() => setActiveTab('activity')}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-r-xl text-xs font-bold transition text-left border-l-2.5 ${
+                activeTab === 'activity'
+                  ? 'bg-[#ff8a5b] text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
+                  : 'border-l-transparent text-slate-400 hover:bg-slate-900/30 hover:text-slate-200'
+              }`}
+            >
+              <Activity className="h-4.5 w-4.5 text-[#ff8a5b]" /> Activity
+            </button>
+
+            <button
               onClick={() => setActiveTab('huddle')}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-r-xl text-xs font-bold transition text-left border-l-2.5 relative ${
                 activeTab === 'huddle'
@@ -763,6 +796,10 @@ export default function WorkspacePage() {
             />
           )}
 
+          {activeTab === 'activity' && (
+            <ActivityFeed teamId={teamId} />
+          )}
+
           {/* Kept mounted rather than conditionally rendered: unmounting on a
               tab switch would tear down an in-progress call. Hidden instead. */}
           <div className={activeTab === 'huddle' ? 'h-full' : 'hidden'}>
@@ -774,6 +811,8 @@ export default function WorkspacePage() {
             />
           </div>
         </div>
+
+        <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
         <CommandPalette
           isOpen={cmdPaletteOpen}
