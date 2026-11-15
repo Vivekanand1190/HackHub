@@ -380,9 +380,15 @@ h1, h2, h3, h4, h5, h6 {
   backdrop-filter: none !important;
 }
 
-/* Kills Tailwind's soft elevation utilities. The primitives above set
-   their own shadow via a non-matching class, so they are unaffected. */
-[class*="shadow"] { box-shadow: none !important; }
+/* Kills only the OLD soft elevation utilities. Arbitrary hard shadows
+   (shadow-[4px_4px_0_...]) stay available for the new ui/ components, which
+   is why this is no longer a blanket [class*="shadow"] rule. */
+[class*="shadow-sm"],
+[class*="shadow-md"],
+[class*="shadow-lg"],
+[class*="shadow-xl"],
+[class*="shadow-2xl"],
+[class*="shadow-inner"] { box-shadow: none !important; }
 
 /* Responsive safety net.
    Several panels use a bare 12-column grid plus fixed pixel widths and

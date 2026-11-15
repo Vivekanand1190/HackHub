@@ -1,6 +1,7 @@
 import { API_BASE, apiUrl } from '../utils/api';
 import React, { useState, useEffect } from 'react';
 import Editor, { loader } from '@monaco-editor/react';
+import { useToast } from './ui/Toast';
 import * as monaco from 'monaco-editor';
 
 loader.config({ monaco });
@@ -47,6 +48,7 @@ interface LintIssue {
 }
 
 export default function CodeEditor({ socket, teamId, initialSnippets, userId, copilotState, tasks = [] }: CodeEditorProps) {
+  const { toast } = useToast();
   const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
   const [selectedSnippet, setSelectedSnippet] = useState<CodeSnippet | null>(null);
   const [code, setCode] = useState('// Select a snippet or create one to begin writing code...');
@@ -97,7 +99,11 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
       });
       if (res.ok) {
         fetchHistory();
-        alert('Code version snapshot saved!');
+        toast({
+        title: 'Snapshot saved',
+        description: 'This version is now in the revision history.',
+        variant: 'success',
+      });
       }
     } catch (err) {
       console.error('Failed to save snapshot:', err);
@@ -138,10 +144,18 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
         socket.emit('code-update', { teamId, snippetId: selectedSnippet.id, code: restoredCode });
       }
       fetchHistory();
-      alert(`Restored code snapshot from ${new Date(rev.createdAt).toLocaleTimeString()}!`);
+      toast({
+        title: 'Snapshot restored',
+        description: `Restored the revision from ${new Date(rev.createdAt).toLocaleTimeString()}.`,
+        variant: 'success',
+      });
     } catch (err: any) {
       console.error('Error restoring revision:', err);
-      alert(err?.message || 'Could not restore that revision.');
+      toast({
+        title: 'Restore failed',
+        description: err?.message || 'Could not restore that revision.',
+        variant: 'error',
+      });
     }
   };
 

@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import { ToastProvider } from "@/components/ui";
 
 // Self-hosted fonts.
 //
@@ -42,7 +43,6 @@ export const metadata: Metadata = {
   description:
     "Collab workspace with real-time chat, shared Monaco code editor, whiteboard, taskboards, and AI Hackathon Copilot.",
   manifest: "/manifest.json",
-  themeColor: "#ffe500",
   keywords: [
     "hackathon",
     "collaboration",
@@ -55,6 +55,11 @@ export const metadata: Metadata = {
   ],
 };
 
+// themeColor belongs in the viewport export, not metadata (deprecated in Next 14+).
+export const viewport: Viewport = {
+  themeColor: "#ff8a5b",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -64,14 +69,13 @@ export default function RootLayout({
     <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#ffe500" />
       </head>
       <body
         suppressHydrationWarning
-        className={`${spaceGrotesk.variable} ${archivoBlack.variable} ${jetbrainsMono.variable} min-h-full flex flex-col antialiased bg-[#0b0b0f] text-[#f5f1e6]`}
+        className={`${spaceGrotesk.variable} ${archivoBlack.variable} ${jetbrainsMono.variable} min-h-full flex flex-col antialiased bg-paper text-ink`}
       >
         <ServiceWorkerRegister />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );
