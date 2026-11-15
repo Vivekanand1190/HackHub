@@ -2,6 +2,7 @@ import { API_BASE, apiUrl } from '../utils/api';
 import React, { useState, useEffect } from 'react';
 import Editor, { loader } from '@monaco-editor/react';
 import { useToast } from './ui/Toast';
+import { diffLines, diffStats, type DiffRow } from '../utils/diff';
 import * as monaco from 'monaco-editor';
 
 loader.config({ monaco });
@@ -61,6 +62,7 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
 
   // Version History States
   const [showHistory, setShowHistory] = useState(false);
+  const [diffFor, setDiffFor] = useState<any | null>(null);
   const [revisions, setRevisions] = useState<any[]>([]);
   const [savingSnapshot, setSavingSnapshot] = useState(false);
 
@@ -561,18 +563,75 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
                       <span className="text-slate-200 font-semibold truncate">{rev.commitMessage}</span>
                       <span className="text-[9px] text-slate-500">{rev.author} • {new Date(rev.createdAt).toLocaleString()}</span>
                     </div>
-                    <button
-                      onClick={() => handleRestoreRevision(rev)}
-                      className="px-2.5 py-1 bg-[#4d7cff] hover:bg-[#3a5fd9] text-black font-bold uppercase text-[9px] border border-black flex items-center gap-1 shrink-0"
-                    >
-                      <RotateCcw className="h-3 w-3" /> Restore
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => setDiffFor(rev)}
+                        className="px-2.5 py-1 bg-transparent hover:bg-slate-900 text-slate-300 font-bold uppercase text-[9px] border border-slate-700 flex items-center gap-1"
+                        title="Preview the changes before restoring"
+                      >
+                        Diff
+                      </button>
+                      <button
+                        onClick={() => handleRestoreRevision(rev)}
+                        className="px-2.5 py-1 bg-[#4d7cff] hover:bg-[#3a5fd9] text-black font-bold uppercase text-[9px] border border-black flex items-center gap-1"
+                      >
+                        <RotateCcw className="h-3 w-3" /> Restore
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
+
+        {diffFor && (() => {
+          const rows: DiffRow[] = diffLines(diffFor.code ?? '', code);
+          const stats = diffStats(rows);
+          return (
+            <div className="bg-[#16161d] border-3 border-[#f5f1e6] p-3 flex flex-col gap-2 font-mono text-[11px]">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="font-bold uppercase text-[#ff8a5b]">
+                  Diff · {diffFor.commitMessage || 'revision'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400">+{stats.added}</span>
+                  <span className="text-rose-400">-{stats.removed}</span>
+                  <button onClick={() => setDiffFor(null)} className="text-slate-400 hover:text-white" aria-label="Close diff">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-56 overflow-auto bg-black border border-slate-800">
+                {rows.map((row, idx) => (
+                  <div
+                    key={idx}
+                    className={
+                      row.type === 'add'
+                        ? 'px-2 text-emerald-300 bg-emerald-500/10'
+                        : row.type === 'del'
+                          ? 'px-2 text-rose-300 bg-rose-500/10'
+                          : 'px-2 text-slate-500'
+                    }
+                  >
+                    <span className="select-none mr-2 opacity-60">
+                      {row.type === 'add' ? '+' : row.type === 'del' ? '-' : ' '}
+                    </span>
+                    {row.text || ' '}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => { setDiffFor(null); handleRestoreRevision(diffFor); }}
+                  className="px-3 py-1.5 bg-[#4d7cff] hover:bg-[#3a5fd9] text-black font-bold uppercase text-[10px] border border-black"
+                >
+                  Restore this version
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Monaco Editor Screen */}
         <div className="flex-1 glass-panel overflow-hidden min-h-[380px] p-2 bg-[#16161d] relative">
