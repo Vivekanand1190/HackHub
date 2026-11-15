@@ -65,7 +65,6 @@ const activeHuddles = new Map<string, Map<string, HuddleMember>>();
 
 // Team video-call presence: teamId -> Set of socket ids currently in the call.
 // The call itself is a LiveKit room; this only mirrors the count for the UI.
-const activeCalls = new Map<string, Set<string>>();
 
 // ---------------------------------------------------------------------------
 // Whiteboard state.
@@ -151,11 +150,6 @@ function applyWhiteboardAction(actions: any[], action: any) {
   }
 }
 
-function broadcastCallPresence(io: Server, teamId: string) {
-  const set = activeCalls.get(teamId);
-  const participantCount = set ? set.size : 0;
-  io.to(teamId).emit('call-presence', { callActive: participantCount > 0, participantCount });
-}
 
 async function isTeamMember(userId: string, teamId: string): Promise<boolean> {
   const team = await prisma.team.findFirst({
@@ -246,12 +240,6 @@ export function registerSocketHandlers(io: Server) {
         socket.emit('timer-sync', activeTimers.get(teamId));
       }
 
-      // Send current call presence if a call is already live
-      {
-        const set = activeCalls.get(teamId);
-        const participantCount = set ? set.size : 0;
-        socket.emit('call-presence', { callActive: participantCount > 0, participantCount });
-      }
 
       // Broadcast system message
       socket.to(teamId).emit('chat-message', {
@@ -715,27 +703,6 @@ export function registerSocketHandlers(io: Server) {
       }
     });
 
-    // Team video-call presence (mirrors the LiveKit room membership count)
-    socket.on('call-join', (data) => {
-      const { teamId } = data || {};
-      if (!inTeamRoom(teamId)) return;
-
-      if (!activeCalls.has(teamId)) activeCalls.set(teamId, new Set());
-      activeCalls.get(teamId)!.add(socket.id);
-      broadcastCallPresence(io, teamId);
-    });
-
-    socket.on('call-leave', (data) => {
-      const { teamId } = data || {};
-      if (!inTeamRoom(teamId)) return;
-
-      const set = activeCalls.get(teamId);
-      if (set) {
-        set.delete(socket.id);
-        if (set.size === 0) activeCalls.delete(teamId);
-      }
-      broadcastCallPresence(io, teamId);
-    });
 
     // Disconnect Handler
     socket.on('disconnect', () => {
@@ -753,14 +720,6 @@ export function registerSocketHandlers(io: Server) {
         }
       }
 
-      if (teamId) {
-        const callSet = activeCalls.get(teamId);
-        if (callSet) {
-          callSet.delete(socket.id);
-          if (callSet.size === 0) activeCalls.delete(teamId);
-          broadcastCallPresence(io, teamId);
-        }
-      }
 
       if (teamId && activePresence.has(teamId)) {
         const presenceMap = activePresence.get(teamId)!;

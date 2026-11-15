@@ -109,14 +109,39 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
   const handleRestoreRevision = async (rev: any) => {
     if (!selectedSnippet) return;
     try {
-      setCode(rev.code);
-      if (rev.language) setLanguage(rev.language);
-      if (socket) {
-        socket.emit('code-update', { teamId, snippetId: selectedSnippet.id, code: rev.code });
+      // Persist the restore. Setting local state alone meant the editor showed
+      // the old code and teammates saw it live, but nothing was written — a
+      // reload silently reverted it. The endpoint that does the write existed
+      // and was simply never called.
+      const token = localStorage.getItem('hackhub_token');
+      const res = await fetch(apiUrl(`/api/snippets/${selectedSnippet.id}/restore`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ revisionId: rev.id }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Restore failed (HTTP ${res.status})`);
       }
+
+      const data = await res.json();
+      const restoredCode = data?.snippet?.code ?? rev.code;
+      const restoredLang = data?.snippet?.language ?? rev.language;
+
+      setCode(restoredCode);
+      if (restoredLang) setLanguage(restoredLang);
+      if (socket) {
+        socket.emit('code-update', { teamId, snippetId: selectedSnippet.id, code: restoredCode });
+      }
+      fetchHistory();
       alert(`Restored code snapshot from ${new Date(rev.createdAt).toLocaleTimeString()}!`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error restoring revision:', err);
+      alert(err?.message || 'Could not restore that revision.');
     }
   };
 

@@ -179,6 +179,11 @@ export default function WorkspacePage() {
         // A failed socket connection used to fail silently: presence stayed
         // empty, and anything sent over the socket was never persisted, with
         // nothing saying why. Log it plainly so the console names the cause.
+        // The server refuses a socket join for a team you are not a member of
+        // and used to tell nobody: the workspace just silently stopped syncing.
+        s.on('team-access-denied', () => {
+          setError('You do not have access to this team. Ask the team leader to add you, then sign in again.');
+        });
         s.on('connect', () => setSocketConnected(true));
         s.on('disconnect', () => setSocketConnected(false));
         s.on('connect_error', (err: Error) => {
