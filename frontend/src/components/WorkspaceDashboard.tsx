@@ -488,14 +488,14 @@ export default function WorkspaceDashboard({
       </div>
 
       {/* GitHub Repo Integration Card */}
-      <div className="glass-panel p-5 border-[#f5f1e6] border-3 shadow-[6px_6px_0_#ffe500] flex flex-col gap-4 bg-[#16161d]">
+      <div className="glass-panel p-5 border-ink border-3 shadow-[6px_6px_0_var(--primary)] flex flex-col gap-4 bg-surface">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-black border-2 border-[#ffe500] text-[#ffe500]">
+            <div className="p-2.5 bg-black border-2 border-primary text-primary">
               <Github className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[#f5f1e6]">GitHub Integration</h3>
+              <h3 className="font-bold text-sm text-ink">GitHub Integration</h3>
               <p className="text-[10px] text-slate-400 leading-normal">Link your repository for real-time commit tracking and code scan reviews</p>
             </div>
           </div>
@@ -523,9 +523,9 @@ export default function WorkspaceDashboard({
           <div className="border-t-2 border-slate-800 pt-3 flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-3">
-                <span className="font-mono font-bold text-[#ffe500]">{gitSummary.fullRepoName || gitSummary.repoName}</span>
+                <span className="font-mono font-bold text-primary">{gitSummary.fullRepoName || gitSummary.repoName}</span>
                 {gitSummary.defaultBranch && (
-                  <span className="px-2 py-0.5 bg-black border border-[#4d7cff] text-[#4d7cff] text-[10px] font-mono font-bold">
+                  <span className="px-2 py-0.5 bg-black border border-link text-link text-[10px] font-mono font-bold">
                     branch: {gitSummary.defaultBranch}
                   </span>
                 )}
@@ -538,7 +538,7 @@ export default function WorkspaceDashboard({
                   href={gitSummary.repoUrl || `https://github.com/${gitSummary.fullRepoName}`} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="text-xs font-bold text-[#ffe500] hover:underline ml-2"
+                  className="text-xs font-bold text-primary hover:underline ml-2"
                 >
                   View Repo ↗
                 </a>
@@ -552,7 +552,7 @@ export default function WorkspaceDashboard({
                 {gitSummary.recentCommits.map((c: any, i: number) => (
                   <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
                     <div className="flex items-center gap-2 truncate">
-                      <span className="text-[#ffe500] font-bold">{c.sha}</span>
+                      <span className="text-primary font-bold">{c.sha}</span>
                       <span className="text-slate-200 truncate">{c.message}</span>
                     </div>
                     <span className="text-[10px] text-slate-500 shrink-0">{c.author}</span>
@@ -773,10 +773,10 @@ export default function WorkspaceDashboard({
           </div>
 
           {/* Real-Time Activity Feed Card */}
-          <div className="glass-panel p-5 border-[#f5f1e6] border-3 shadow-[6px_6px_0_#ff4d8d] bg-[#16161d] flex flex-col gap-4">
+          <div className="glass-panel p-5 border-ink border-3 shadow-[6px_6px_0_var(--primary)] bg-surface flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-sm text-[#f5f1e6] uppercase tracking-wider flex items-center gap-2">
-                <Clock className="h-4.5 w-4.5 text-[#ff4d8d]" /> Live Activity Stream
+              <h3 className="font-extrabold text-sm text-ink uppercase tracking-wider flex items-center gap-2">
+                <Clock className="h-4.5 w-4.5 text-primary" /> Live Activity Stream
               </h3>
               <span className="text-[10px] font-mono text-slate-400">({activities.length} recent events)</span>
             </div>
@@ -790,7 +790,7 @@ export default function WorkspaceDashboard({
                 {activities.map((act) => (
                   <div key={act.id} className="bg-black border border-slate-800 p-2.5 flex items-center justify-between gap-3 text-xs font-mono">
                     <div className="flex items-center gap-2.5 truncate">
-                      <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase bg-slate-900 border border-slate-700 text-[#ffe500]">
+                      <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase bg-slate-900 border border-slate-700 text-primary">
                         {act.category}
                       </span>
                       <span className="text-slate-200 truncate">{act.title}</span>
@@ -949,7 +949,7 @@ export default function WorkspaceDashboard({
       {/* MODAL: XP REWARDS SHOP */}
       {showShop && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="glass-panel p-6 border-[#f5f1e6] border-3 max-w-md w-full flex flex-col gap-4 bg-[#16161d] relative shadow-[6px_6px_0_#ffe500]">
+          <div className="glass-panel p-6 border-ink border-3 max-w-md w-full flex flex-col gap-4 bg-surface relative shadow-[6px_6px_0_var(--primary)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-amber-400" />

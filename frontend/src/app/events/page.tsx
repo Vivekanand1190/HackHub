@@ -72,14 +72,14 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0b0f] text-[#f5f1e6] font-mono p-4 md:p-8">
+    <div className="min-h-screen bg-paper text-ink font-mono p-4 md:p-8">
       {/* Top Header */}
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 border-b-3 border-[#f5f1e6] pb-6 mb-8">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 border-b-3 border-ink pb-6 mb-8">
         <div>
-          <div className="flex items-center gap-2 text-[#ffe500] text-xs font-bold uppercase tracking-widest mb-1">
+          <div className="flex items-center gap-2 text-primary text-xs font-bold uppercase tracking-widest mb-1">
             <Sparkles className="h-4 w-4" /> Multi-Tenant Platform
           </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold uppercase tracking-tight text-[#f5f1e6]">
+          <h1 className="text-3xl md:text-5xl font-extrabold uppercase tracking-tight text-ink">
             Hackathon Events Hub
           </h1>
         </div>
@@ -87,13 +87,13 @@ export default function EventsPage() {
         <div className="flex items-center gap-3">
           <Link 
             href="/" 
-            className="px-4 py-2 text-xs font-bold bg-[#16161d] text-white border-2 border-white hover:bg-white hover:text-black transition shadow-[2px_2px_0_#fff]"
+            className="px-4 py-2 text-xs font-bold bg-surface text-white border-2 border-white hover:bg-white hover:text-black transition shadow-[2px_2px_0_#fff]"
           >
             ← Home
           </Link>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 text-xs font-extrabold bg-[#ffe500] text-black border-2 border-black hover:translate-x-0.5 hover:translate-y-0.5 transition shadow-[3px_3px_0_#000] flex items-center gap-1.5"
+            className="px-4 py-2 text-xs font-extrabold bg-primary text-black border-2 border-black hover:translate-x-0.5 hover:translate-y-0.5 transition shadow-[3px_3px_0_#000] flex items-center gap-1.5"
           >
             <Plus className="h-4 w-4" /> Create Event
           </button>
@@ -106,14 +106,14 @@ export default function EventsPage() {
           <div className="text-center py-20 text-slate-500 text-sm">Loading events...</div>
         ) : events.length === 0 ? (
           <div className="text-center py-20 border-2 border-dashed border-slate-800 p-8">
-            <Trophy className="h-12 w-12 text-[#ffe500] mx-auto mb-3" />
+            <Trophy className="h-12 w-12 text-primary mx-auto mb-3" />
             <h3 className="text-lg font-bold text-white mb-2 uppercase">No Events Found</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mb-6">
               Organize your first hackathon event with tracks, custom prizes, sponsors, and schedule agenda!
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 text-xs font-extrabold bg-[#ffe500] text-black border-2 border-black"
+              className="px-4 py-2 text-xs font-extrabold bg-primary text-black border-2 border-black"
             >
               + Create First Event
             </button>
@@ -123,16 +123,16 @@ export default function EventsPage() {
             {events.map((evt) => (
               <div 
                 key={evt.id}
-                className="bg-[#16161d] border-3 border-[#f5f1e6] p-5 flex flex-col justify-between shadow-[4px_4px_0_#ff4d8d] hover:-translate-y-1 transition"
+                className="bg-surface border-3 border-ink p-5 flex flex-col justify-between shadow-[4px_4px_0_var(--primary)] hover:-translate-y-1 transition"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 border uppercase ${
                       evt.status === 'live' 
-                        ? 'bg-[#b8ff3c] text-black border-black' 
+                        ? 'bg-success text-black border-black' 
                         : evt.status === 'ended' 
                           ? 'bg-slate-800 text-slate-300 border-slate-700' 
-                          : 'bg-[#ffe500] text-black border-black'
+                          : 'bg-primary text-black border-black'
                     }`}>
                       ● {evt.status}
                     </span>
@@ -141,7 +141,7 @@ export default function EventsPage() {
                     </span>
                   </div>
 
-                  <h2 className="text-xl font-extrabold text-[#f5f1e6] uppercase tracking-tight mb-2">
+                  <h2 className="text-xl font-extrabold text-ink uppercase tracking-tight mb-2">
                     {evt.name}
                   </h2>
                   <p className="text-xs text-slate-300 line-clamp-2 mb-4 leading-relaxed">
@@ -152,18 +152,18 @@ export default function EventsPage() {
                 <div>
                   <div className="flex items-center gap-3 text-[11px] text-slate-400 border-t border-slate-800 pt-3 mb-4">
                     <div className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5 text-[#4d7cff]" />
+                      <Calendar className="h-3.5 w-3.5 text-link" />
                       <span>{new Date(evt.startDate).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Tag className="h-3.5 w-3.5 text-[#ffe500]" />
+                      <Tag className="h-3.5 w-3.5 text-primary" />
                       <span>{evt.tracks?.length || 0} Track(s)</span>
                     </div>
                   </div>
 
                   <Link
                     href={`/events/${evt.slug || evt.id}`}
-                    className="w-full py-2 bg-[#ffe500] text-black font-extrabold text-xs uppercase border-2 border-black shadow-[2px_2px_0_#000] flex items-center justify-center gap-2 hover:bg-[#ff4d8d] hover:text-white transition"
+                    className="w-full py-2 bg-primary text-black font-extrabold text-xs uppercase border-2 border-black shadow-[2px_2px_0_#000] flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition"
                   >
                     View Event Details <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -177,9 +177,9 @@ export default function EventsPage() {
       {/* Create Event Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#16161d] border-3 border-[#f5f1e6] p-6 w-full max-w-lg shadow-[6px_6px_0_#ffe500]">
+          <div className="bg-surface border-3 border-ink p-6 w-full max-w-lg shadow-[6px_6px_0_var(--primary)]">
             <div className="flex items-center justify-between border-b-2 border-slate-800 pb-3 mb-4">
-              <h3 className="text-base font-extrabold uppercase text-[#ffe500]">Create Hackathon Event</h3>
+              <h3 className="text-base font-extrabold uppercase text-primary">Create Hackathon Event</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
             </div>
 
@@ -195,7 +195,7 @@ export default function EventsPage() {
                     setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'));
                   }}
                   placeholder="e.g. HackHub Global 2026"
-                  className="w-full bg-black text-white border-2 border-[#f5f1e6] p-2 mt-1 focus:border-[#ffe500] focus:outline-none"
+                  className="w-full bg-black text-white border-2 border-ink p-2 mt-1 focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -207,7 +207,7 @@ export default function EventsPage() {
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   placeholder="hackhub-global-2026"
-                  className="w-full bg-black text-white border-2 border-[#f5f1e6] p-2 mt-1 focus:border-[#ffe500] focus:outline-none font-mono"
+                  className="w-full bg-black text-white border-2 border-ink p-2 mt-1 focus:border-primary focus:outline-none font-mono"
                 />
               </div>
 
@@ -218,7 +218,7 @@ export default function EventsPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe your hackathon goals, theme, and rules..."
-                  className="w-full bg-black text-white border-2 border-[#f5f1e6] p-2 mt-1 focus:border-[#ffe500] focus:outline-none"
+                  className="w-full bg-black text-white border-2 border-ink p-2 mt-1 focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -230,7 +230,7 @@ export default function EventsPage() {
                     required
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-black text-white border-2 border-[#f5f1e6] p-2 mt-1"
+                    className="w-full bg-black text-white border-2 border-ink p-2 mt-1"
                   />
                 </div>
                 <div>
@@ -240,7 +240,7 @@ export default function EventsPage() {
                     required
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-black text-white border-2 border-[#f5f1e6] p-2 mt-1"
+                    className="w-full bg-black text-white border-2 border-ink p-2 mt-1"
                   />
                 </div>
               </div>
@@ -250,7 +250,7 @@ export default function EventsPage() {
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full bg-black text-white border-2 border-[#f5f1e6] p-2 mt-1"
+                  className="w-full bg-black text-white border-2 border-ink p-2 mt-1"
                 >
                   <option value="draft">Draft</option>
                   <option value="live">Live</option>
@@ -261,7 +261,7 @@ export default function EventsPage() {
               <button
                 type="submit"
                 disabled={creating}
-                className="mt-3 py-3 bg-[#ffe500] text-black font-extrabold uppercase border-2 border-black shadow-[3px_3px_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 transition"
+                className="mt-3 py-3 bg-primary text-black font-extrabold uppercase border-2 border-black shadow-[3px_3px_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 transition"
               >
                 {creating ? 'Creating Event...' : 'Publish Event'}
               </button>

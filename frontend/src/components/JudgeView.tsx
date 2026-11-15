@@ -92,30 +92,30 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
   return (
     <div className="flex flex-col gap-6 font-sans">
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-[#f5f1e6] border-3 shadow-[6px_6px_0_#ffe500] bg-[#16161d] flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="glass-panel p-6 border-ink border-3 shadow-[6px_6px_0_var(--primary)] bg-surface flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-black border-2 border-[#ffe500] text-[#ffe500]">
+          <div className="p-3 bg-black border-2 border-primary text-primary">
             <Award className="h-6 w-6" />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold text-[#f5f1e6]">Judge & Mentor Evaluation Portal</h2>
+            <h2 className="text-xl font-extrabold text-ink">Judge & Mentor Evaluation Portal</h2>
             <p className="text-xs text-slate-400">Scoring workspace for "{teamName}" submission</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 bg-black border-2 border-[#f5f1e6] p-3 shadow-[3px_3px_0_#ff4d8d]">
+        <div className="flex items-center gap-4 bg-black border-2 border-ink p-3 shadow-[3px_3px_0_var(--primary)]">
           <div className="text-right">
             <span className="text-[9px] uppercase font-bold text-slate-400 block">Current Avg Score</span>
-            <span className="text-2xl font-extrabold text-[#ffe500]">{avgScore} / 100</span>
+            <span className="text-2xl font-extrabold text-primary">{avgScore} / 100</span>
           </div>
-          <ShieldCheck className="h-8 w-8 text-[#b8ff3c]" />
+          <ShieldCheck className="h-8 w-8 text-success" />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Interactive Scoring Form */}
-        <div className="lg:col-span-7 glass-panel p-6 border-[#f5f1e6] border-3 bg-[#16161d] shadow-[6px_6px_0_#ff4d8d] flex flex-col gap-5">
-          <h3 className="text-base font-extrabold text-[#f5f1e6] uppercase tracking-wider border-b-2 border-slate-800 pb-2">
+        <div className="lg:col-span-7 glass-panel p-6 border-ink border-3 bg-surface shadow-[6px_6px_0_var(--primary)] flex flex-col gap-5">
+          <h3 className="text-base font-extrabold text-ink uppercase tracking-wider border-b-2 border-slate-800 pb-2">
             Rubric Criteria Scoring
           </h3>
 
@@ -123,8 +123,8 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
             {/* Criteria 1: Pitch */}
             <div className="flex flex-col gap-2 bg-black p-3.5 border-2 border-slate-800">
               <div className="flex justify-between items-center text-xs font-bold font-mono">
-                <span className="text-[#f5f1e6]">1. Pitch & Presentation (25%)</span>
-                <span className="text-[#ffe500] text-sm">{pitchScore} pts</span>
+                <span className="text-ink">1. Pitch & Presentation (25%)</span>
+                <span className="text-primary text-sm">{pitchScore} pts</span>
               </div>
               <input
                 type="range"
@@ -132,15 +132,15 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
                 max="100"
                 value={pitchScore}
                 onChange={(e) => setPitchScore(Number(e.target.value))}
-                className="w-full accent-[#ffe500] cursor-pointer"
+                className="w-full accent-primary cursor-pointer"
               />
             </div>
 
             {/* Criteria 2: Code Quality */}
             <div className="flex flex-col gap-2 bg-black p-3.5 border-2 border-slate-800">
               <div className="flex justify-between items-center text-xs font-bold font-mono">
-                <span className="text-[#f5f1e6]">2. Code Quality & Architecture (35%)</span>
-                <span className="text-[#4d7cff] text-sm">{codeScore} pts</span>
+                <span className="text-ink">2. Code Quality & Architecture (35%)</span>
+                <span className="text-link text-sm">{codeScore} pts</span>
               </div>
               <input
                 type="range"
@@ -148,15 +148,15 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
                 max="100"
                 value={codeScore}
                 onChange={(e) => setCodeScore(Number(e.target.value))}
-                className="w-full accent-[#4d7cff] cursor-pointer"
+                className="w-full accent-link cursor-pointer"
               />
             </div>
 
             {/* Criteria 3: Innovation */}
             <div className="flex flex-col gap-2 bg-black p-3.5 border-2 border-slate-800">
               <div className="flex justify-between items-center text-xs font-bold font-mono">
-                <span className="text-[#f5f1e6]">3. Innovation & Originality (25%)</span>
-                <span className="text-[#ff4d8d] text-sm">{innovationScore} pts</span>
+                <span className="text-ink">3. Innovation & Originality (25%)</span>
+                <span className="text-primary text-sm">{innovationScore} pts</span>
               </div>
               <input
                 type="range"
@@ -164,15 +164,15 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
                 max="100"
                 value={innovationScore}
                 onChange={(e) => setInnovationScore(Number(e.target.value))}
-                className="w-full accent-[#ff4d8d] cursor-pointer"
+                className="w-full accent-primary cursor-pointer"
               />
             </div>
 
             {/* Criteria 4: Design */}
             <div className="flex flex-col gap-2 bg-black p-3.5 border-2 border-slate-800">
               <div className="flex justify-between items-center text-xs font-bold font-mono">
-                <span className="text-[#f5f1e6]">4. UX & Design Aesthetics (15%)</span>
-                <span className="text-[#b8ff3c] text-sm">{designScore} pts</span>
+                <span className="text-ink">4. UX & Design Aesthetics (15%)</span>
+                <span className="text-success text-sm">{designScore} pts</span>
               </div>
               <input
                 type="range"
@@ -180,7 +180,7 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
                 max="100"
                 value={designScore}
                 onChange={(e) => setDesignScore(Number(e.target.value))}
-                className="w-full accent-[#b8ff3c] cursor-pointer"
+                className="w-full accent-success cursor-pointer"
               />
             </div>
 
@@ -202,7 +202,7 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
             <div className="flex items-center justify-between pt-2">
               <div className="text-xs font-mono">
                 <span className="text-slate-400">Total Score: </span>
-                <span className="font-extrabold text-[#ffe500] text-lg">{calculatedOverall} / 100</span>
+                <span className="font-extrabold text-primary text-lg">{calculatedOverall} / 100</span>
               </div>
 
               <button
@@ -218,8 +218,8 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
 
         {/* Existing Reviews & Feedback list */}
         <div className="lg:col-span-5 flex flex-col gap-4">
-          <div className="glass-panel p-5 border-[#f5f1e6] border-3 bg-[#16161d] shadow-[6px_6px_0_#4d7cff] flex flex-col gap-4">
-            <h3 className="text-sm font-extrabold text-[#f5f1e6] uppercase tracking-wider border-b-2 border-slate-800 pb-2">
+          <div className="glass-panel p-5 border-ink border-3 bg-surface shadow-[6px_6px_0_var(--link)] flex flex-col gap-4">
+            <h3 className="text-sm font-extrabold text-ink uppercase tracking-wider border-b-2 border-slate-800 pb-2">
               Submitted Judge Reviews ({evaluations.length})
             </h3>
 
@@ -232,8 +232,8 @@ export default function JudgeView({ teamId, teamName }: JudgeViewProps) {
                 {evaluations.map((ev) => (
                   <div key={ev.id} className="bg-black border-2 border-slate-800 p-3 flex flex-col gap-2 text-xs font-mono">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                      <span className="font-bold text-[#ffe500]">{ev.judgeName}</span>
-                      <span className="font-extrabold text-sm text-[#b8ff3c]">{ev.overallScore} / 100</span>
+                      <span className="font-bold text-primary">{ev.judgeName}</span>
+                      <span className="font-extrabold text-sm text-success">{ev.overallScore} / 100</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-400 my-1">

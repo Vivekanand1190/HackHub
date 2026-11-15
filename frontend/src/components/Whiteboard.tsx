@@ -42,8 +42,22 @@ export interface DrawAction {
   fill?: 'none' | 'semi' | 'solid';
 }
 
+/**
+ * The canvas 2D API cannot resolve CSS custom properties — assigning
+ * `var(--primary)` to strokeStyle silently paints nothing. Actions carry a
+ * token reference so the palette stays single-sourced, so resolve it to a
+ * concrete colour at draw time.
+ */
+function resolveColor(value: string): string {
+  if (typeof window === 'undefined') return value;
+  const match = /^var\((--[a-zA-Z0-9-]+)\)$/.exec((value || '').trim());
+  if (!match) return value;
+  const resolved = getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim();
+  return resolved || value;
+}
+
 function hexToRGBA(hex: string, alpha: number): string {
-  const cleanHex = hex.replace('#', '');
+  const cleanHex = resolveColor(hex).replace('#', '');
   const r = parseInt(cleanHex.substring(0, 2), 16);
   const g = parseInt(cleanHex.substring(2, 4), 16);
   const b = parseInt(cleanHex.substring(4, 6), 16);
@@ -56,7 +70,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
   
   // Drawing configurations
   const [tool, setTool] = useState<'brush' | 'highlighter' | 'calligraphy' | 'eraser' | 'rect' | 'circle' | 'line' | 'arrow' | 'triangle' | 'sticky' | 'pan' | 'laser'>('brush');
-  const [color, setColor] = useState('#ffe500');
+  const [color, setColor] = useState('var(--primary)');
   const [strokeWidth, setStrokeWidth] = useState<number>(3);
   const [strokeStyle, setStrokeStyle] = useState<'solid' | 'dashed' | 'dotted'>('solid');
   const [fillMode, setFillMode] = useState<'none' | 'semi' | 'solid'>('none');
@@ -241,7 +255,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
             socketId: data.socketId,
             userId: data.userId,
             name: data.name,
-            color: data.color || '#ffe500',
+            color: data.color || 'var(--primary)',
             x: data.x,
             y: data.y
           }
@@ -314,7 +328,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
     ctx.save();
     
     // Set standard drawing configs
-    ctx.strokeStyle = action.color;
+    ctx.strokeStyle = resolveColor(action.color);
     ctx.lineWidth = action.width;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -367,7 +381,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
         ctx.fillStyle = hexToRGBA(action.color, 0.15);
         ctx.fillRect(action.x, action.y, w, h);
       } else if (action.fill === 'solid') {
-        ctx.fillStyle = action.color;
+        ctx.fillStyle = resolveColor(action.color);
         ctx.fillRect(action.x, action.y, w, h);
       }
       ctx.strokeRect(action.x, action.y, w, h);
@@ -384,7 +398,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
         ctx.fillStyle = hexToRGBA(action.color, 0.15);
         ctx.fill();
       } else if (action.fill === 'solid') {
-        ctx.fillStyle = action.color;
+        ctx.fillStyle = resolveColor(action.color);
         ctx.fill();
       }
       ctx.stroke();
@@ -429,7 +443,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
         ctx.fillStyle = hexToRGBA(action.color, 0.15);
         ctx.fill();
       } else if (action.fill === 'solid') {
-        ctx.fillStyle = action.color;
+        ctx.fillStyle = resolveColor(action.color);
         ctx.fill();
       }
       ctx.stroke();
@@ -473,11 +487,11 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
       if (!path || path.length === 0) return;
       
       ctx.save();
-      ctx.strokeStyle = laser.color;
+      ctx.strokeStyle = resolveColor(laser.color);
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.shadowColor = laser.color;
+      ctx.shadowColor = resolveColor(laser.color);
       ctx.shadowBlur = 8;
       
       const age = Date.now() - laser.timestamp;
@@ -494,7 +508,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
       const tip = path[path.length - 1];
       ctx.beginPath();
       ctx.arc(tip.x, tip.y, 6, 0, 2 * Math.PI);
-      ctx.fillStyle = laser.color;
+      ctx.fillStyle = resolveColor(laser.color);
       ctx.fill();
       
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
@@ -631,7 +645,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
       redrawAll(ctx);
       
       ctx.save();
-      ctx.strokeStyle = tool === 'eraser' ? '#090b10' : color;
+      ctx.strokeStyle = tool === 'eraser' ? '#090b10' : resolveColor(color);
       ctx.lineWidth = tool === 'eraser' ? strokeWidth * 4 : strokeWidth;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -1081,9 +1095,9 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
 
           {/* Color Picker Palette */}
           <div className="flex items-center gap-1.5 bg-slate-900/80 p-1.5 border border-slate-800">
-            {['#ffe500', '#ff4d8d', '#4d7cff', '#b8ff3c', '#ff6b35', '#f5f1e6'].map(c => (
+            {['var(--primary)', 'var(--link)', 'var(--success)', 'var(--warn)', 'var(--danger)', 'var(--ink)'].map((c, i) => (
               <button
-                key={c}
+                key={`${c}-${i}`}
                 onClick={() => setColor(c)}
                 style={{ backgroundColor: c }}
                 className={`w-5 h-5 border-2 transition ${
@@ -1156,7 +1170,7 @@ export default function Whiteboard({ socket, teamId, initialData = [] }: Whitebo
       </div>
 
       {/* Canvas container */}
-      <div className="flex-1 relative bg-[#16161d] cursor-crosshair overflow-hidden select-none border-t-3 border-[#f5f1e6]">
+      <div className="flex-1 relative bg-surface cursor-crosshair overflow-hidden select-none border-t-3 border-ink">
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}

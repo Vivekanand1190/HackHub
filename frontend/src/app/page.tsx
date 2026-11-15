@@ -225,18 +225,18 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0f]">
+    <div className="relative min-h-screen overflow-hidden bg-paper">
       {/* Background grid design */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#222_1px,transparent_1px),linear-gradient(to_bottom,#222_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-60"></div>
       
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-5 max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-[#ffe500] shadow-[4px_4px_0_#000]">
+          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-primary shadow-[4px_4px_0_#000]">
             <Layers className="h-5.5 w-5.5 text-black" />
           </div>
-          <span className="font-extrabold text-2xl tracking-tight text-[#f5f1e6]">
-            HACK<span className="text-[#ffe500]">HUB</span>
+          <span className="font-extrabold text-2xl tracking-tight text-ink">
+            HACK<span className="text-primary">HUB</span>
           </span>
         </div>
         

@@ -113,7 +113,7 @@ export default function CommandPalette({
       badge: 'Tab'
     },
     {
-      id: 'nav-[#ffe500]',
+      id: 'nav-[var(--primary)]',
       title: 'Open Screen Share & Remote Huddle',
       category: 'Navigation',
       icon: Monitor,
@@ -279,17 +279,17 @@ export default function CommandPalette({
 
   return (
     <div className="fixed inset-0 bg-black/75 z-[100] flex items-start justify-center pt-20 p-4">
-      <div className="w-full max-w-xl bg-[#16161d] border-3 border-[#f5f1e6] shadow-[8px_8px_0_#ffe500] flex flex-col overflow-hidden relative font-sans">
+      <div className="w-full max-w-xl bg-surface border-3 border-ink shadow-[8px_8px_0_var(--primary)] flex flex-col overflow-hidden relative font-sans">
         {/* Input Bar */}
-        <div className="p-4 border-b-3 border-[#f5f1e6] bg-black flex items-center gap-3">
-          <Search className="h-5 w-5 text-[#ffe500] shrink-0" />
+        <div className="p-4 border-b-3 border-ink bg-black flex items-center gap-3">
+          <Search className="h-5 w-5 text-primary shrink-0" />
           <input
             type="text"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Type a command or search workspace... (Cmd / Ctrl + K)"
-            className="w-full bg-transparent border-none text-[#f5f1e6] text-sm font-mono focus:outline-none placeholder:text-slate-500"
+            className="w-full bg-transparent border-none text-ink text-sm font-mono focus:outline-none placeholder:text-slate-500"
           />
           <button 
             onClick={onClose}
@@ -300,7 +300,7 @@ export default function CommandPalette({
         </div>
 
         {/* Command list */}
-        <div className="max-h-96 overflow-y-auto p-2 flex flex-col gap-1 bg-[#0b0b0f]">
+        <div className="max-h-96 overflow-y-auto p-2 flex flex-col gap-1 bg-paper">
           {filteredCommands.length === 0 ? (
             <div className="p-6 text-center text-slate-500 font-mono text-xs">
               {searching ? 'Searching messages…' : 'No matching commands found.'}
@@ -316,17 +316,17 @@ export default function CommandPalette({
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`w-full text-left px-3 py-2.5 flex items-center justify-between transition font-mono text-xs border-2 ${
                     isSelected 
-                      ? 'bg-[#ffe500] text-black border-black font-bold shadow-[2px_2px_0_#000]' 
-                      : 'bg-[#16161d] text-[#f5f1e6] border-transparent hover:border-slate-700'
+                      ? 'bg-primary text-black border-black font-bold shadow-[2px_2px_0_#000]' 
+                      : 'bg-surface text-ink border-transparent hover:border-slate-700'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`h-4 w-4 ${isSelected ? 'text-black' : 'text-[#ffe500]'}`} />
+                    <Icon className={`h-4 w-4 ${isSelected ? 'text-black' : 'text-primary'}`} />
                     <span>{item.title}</span>
                   </div>
                   {item.badge && (
                     <span className={`text-[10px] px-2 py-0.5 uppercase font-bold border ${
-                      isSelected ? 'bg-black text-[#ffe500] border-black' : 'bg-black text-slate-400 border-slate-700'
+                      isSelected ? 'bg-black text-primary border-black' : 'bg-black text-slate-400 border-slate-700'
                     }`}>
                       {item.badge}
                     </span>
@@ -344,7 +344,7 @@ export default function CommandPalette({
             <span><kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 text-white">↵</kbd> Select</span>
             <span><kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 text-white">ESC</kbd> Close</span>
           </div>
-          <span className="text-[#ffe500] font-bold">HackHub Command Palette</span>
+          <span className="text-primary font-bold">HackHub Command Palette</span>
         </div>
       </div>
     </div>

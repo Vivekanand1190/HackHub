@@ -43,19 +43,19 @@ export default function Leaderboard({ teamId }: LeaderboardProps) {
   }, [teamId]);
 
   return (
-    <div className="glass-panel p-5 border-[#f5f1e6] border-3 shadow-[6px_6px_0_#4d7cff] bg-[#16161d] flex flex-col gap-4 font-sans">
+    <div className="glass-panel p-5 border-ink border-3 shadow-[6px_6px_0_var(--link)] bg-surface flex flex-col gap-4 font-sans">
       <div className="flex items-center justify-between border-b-2 border-slate-800 pb-3">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-black border-2 border-[#4d7cff] text-[#4d7cff]">
+          <div className="p-2 bg-black border-2 border-link text-link">
             <Trophy className="h-4.5 w-4.5" />
           </div>
           <div>
-            <h3 className="font-extrabold text-sm text-[#f5f1e6] uppercase tracking-wider">Team XP Leaderboard</h3>
+            <h3 className="font-extrabold text-sm text-ink uppercase tracking-wider">Team XP Leaderboard</h3>
             <p className="text-[10px] text-slate-400">Total Team XP Accumulated: {totalXp} XP</p>
           </div>
         </div>
 
-        <span className="text-[10px] font-mono px-2 py-1 bg-black border border-slate-700 text-[#ffe500] font-bold">
+        <span className="text-[10px] font-mono px-2 py-1 bg-black border border-slate-700 text-primary font-bold">
           Sprint Ranks
         </span>
       </div>
@@ -71,11 +71,11 @@ export default function Leaderboard({ teamId }: LeaderboardProps) {
               key={m.id}
               className={`p-3 border-2 flex items-center justify-between gap-3 font-mono text-xs transition ${
                 m.rank === 1
-                  ? 'bg-black border-[#ffe500] shadow-[3px_3px_0_#ffe500]'
+                  ? 'bg-black border-primary shadow-[3px_3px_0_var(--primary)]'
                   : m.rank === 2
-                  ? 'bg-black border-[#4d7cff] shadow-[3px_3px_0_#4d7cff]'
+                  ? 'bg-black border-link shadow-[3px_3px_0_var(--link)]'
                   : m.rank === 3
-                  ? 'bg-black border-[#ff4d8d] shadow-[3px_3px_0_#ff4d8d]'
+                  ? 'bg-black border-primary shadow-[3px_3px_0_var(--primary)]'
                   : 'bg-black border-slate-800'
               }`}
             >
@@ -84,7 +84,7 @@ export default function Leaderboard({ teamId }: LeaderboardProps) {
                   {m.rank === 1 ? '🥇' : m.rank === 2 ? '🥈' : m.rank === 3 ? '🥉' : `#${m.rank}`}
                 </span>
                 <div className="flex flex-col">
-                  <span className="font-bold text-[#f5f1e6]">{m.name}</span>
+                  <span className="font-bold text-ink">{m.name}</span>
                   <span className="text-[9px] text-slate-400">
                     {m.role} • Lvl {m.level} • {m.completedTasks} Tasks Done
                   </span>
@@ -92,7 +92,7 @@ export default function Leaderboard({ teamId }: LeaderboardProps) {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-900 border border-slate-700 text-[#b8ff3c]">
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-900 border border-slate-700 text-success">
                   {m.xp} XP
                 </span>
               </div>

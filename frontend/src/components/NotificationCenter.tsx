@@ -149,11 +149,11 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'mention': return <MessageSquare className="h-4 w-4 text-[#ffe500]" />;
-      case 'task_assignment': return <CheckSquare className="h-4 w-4 text-[#ff4d8d]" />;
-      case 'deadline': return <Calendar className="h-4 w-4 text-[#4d7cff]" />;
-      case 'judge_score': return <Award className="h-4 w-4 text-[#b8ff3c]" />;
-      case 'huddle_invite': return <Volume2 className="h-4 w-4 text-[#ffe500]" />;
+      case 'mention': return <MessageSquare className="h-4 w-4 text-primary" />;
+      case 'task_assignment': return <CheckSquare className="h-4 w-4 text-primary" />;
+      case 'deadline': return <Calendar className="h-4 w-4 text-link" />;
+      case 'judge_score': return <Award className="h-4 w-4 text-success" />;
+      case 'huddle_invite': return <Volume2 className="h-4 w-4 text-primary" />;
       default: return <Megaphone className="h-4 w-4 text-white" />;
     }
   };
@@ -163,12 +163,12 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
       {/* Bell Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 bg-[#16161d] text-[#f5f1e6] border-2 border-[#f5f1e6] hover:bg-[#ffe500] hover:text-black transition shadow-[2px_2px_0_#000]"
+        className="relative p-2 bg-surface text-ink border-2 border-ink hover:bg-primary hover:text-black transition shadow-[2px_2px_0_#000]"
         title="Notifications"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-[#ff4d8d] text-white text-[10px] font-extrabold px-1.5 py-0.5 border-2 border-black font-mono">
+          <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-extrabold px-1.5 py-0.5 border-2 border-black font-mono">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -176,19 +176,19 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
 
       {/* Notification Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 md:w-96 bg-[#0b0b0f] border-3 border-[#f5f1e6] shadow-[4px_4px_0_#000] z-50 flex flex-col max-h-[500px] overflow-hidden font-mono">
+        <div className="absolute right-0 mt-2 w-80 md:w-96 bg-paper border-3 border-ink shadow-[4px_4px_0_#000] z-50 flex flex-col max-h-[500px] overflow-hidden font-mono">
           {/* Header */}
           <div className="bg-black p-3 border-b-2 border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-[#ffe500]" />
-              <h3 className="text-xs font-bold uppercase tracking-widest text-[#f5f1e6]">Notifications</h3>
+              <Bell className="h-4 w-4 text-primary" />
+              <h3 className="text-xs font-bold uppercase tracking-widest text-ink">Notifications</h3>
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setActiveTab('notifications')}
                 className={`text-[10px] uppercase font-bold px-2 py-0.5 border ${
                   activeTab === 'notifications'
-                    ? 'bg-[#ffe500] text-black border-black'
+                    ? 'bg-primary text-black border-black'
                     : 'text-slate-400 border-transparent hover:text-white'
                 }`}
               >
@@ -198,7 +198,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
                 onClick={() => setActiveTab('preferences')}
                 className={`text-[10px] uppercase font-bold px-2 py-0.5 border ${
                   activeTab === 'preferences'
-                    ? 'bg-[#ffe500] text-black border-black'
+                    ? 'bg-primary text-black border-black'
                     : 'text-slate-400 border-transparent hover:text-white'
                 }`}
               >
@@ -218,11 +218,11 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
           {activeTab === 'notifications' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               {unreadCount > 0 && (
-                <div className="px-3 py-1.5 bg-[#16161d] border-b border-slate-800 flex items-center justify-between">
+                <div className="px-3 py-1.5 bg-surface border-b border-slate-800 flex items-center justify-between">
                   <span className="text-[10px] text-slate-400">{unreadCount} unread notification(s)</span>
                   <button
                     onClick={markAllAsRead}
-                    className="text-[10px] text-[#ffe500] hover:underline font-bold flex items-center gap-1"
+                    className="text-[10px] text-primary hover:underline font-bold flex items-center gap-1"
                   >
                     <CheckCheck className="h-3 w-3" />
                     Mark all read
@@ -230,7 +230,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
                 </div>
               )}
 
-              <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60 bg-[#0b0b0f]">
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60 bg-paper">
                 {notifications.length === 0 ? (
                   <div className="p-8 text-center text-xs text-slate-500 font-mono">
                     No notifications yet.
@@ -240,7 +240,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
                     <div
                       key={item.id}
                       className={`p-3 transition flex items-start gap-2.5 ${
-                        item.read ? 'bg-[#0b0b0f] opacity-75' : 'bg-[#16161d] border-l-3 border-[#ffe500]'
+                        item.read ? 'bg-paper opacity-75' : 'bg-surface border-l-3 border-primary'
                       }`}
                     >
                       <div className="mt-0.5 shrink-0 p-1.5 bg-black border border-slate-800">
@@ -260,7 +260,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
                               markAsRead(item.id);
                               if (onNavigate) onNavigate(item.targetUrl!);
                             }}
-                            className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-[#ffe500] hover:underline font-bold"
+                            className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-bold"
                           >
                             Open Link <ExternalLink className="h-3 w-3" />
                           </button>
@@ -269,7 +269,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
                       {!item.read && (
                         <button
                           onClick={() => markAsRead(item.id)}
-                          className="text-slate-400 hover:text-[#ffe500] shrink-0 p-1"
+                          className="text-slate-400 hover:text-primary shrink-0 p-1"
                           title="Mark read"
                         >
                           <Check className="h-3.5 w-3.5" />
@@ -284,8 +284,8 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
 
           {/* Preferences Tab */}
           {activeTab === 'preferences' && (
-            <form onSubmit={savePreferences} className="p-4 flex flex-col gap-3 bg-[#16161d] text-xs">
-              <h4 className="text-[11px] font-bold text-[#ffe500] uppercase tracking-wider mb-1">
+            <form onSubmit={savePreferences} className="p-4 flex flex-col gap-3 bg-surface text-xs">
+              <h4 className="text-[11px] font-bold text-primary uppercase tracking-wider mb-1">
                 Notification Delivery Channels
               </h4>
 
@@ -295,7 +295,7 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
                   type="checkbox"
                   checked={preferences.inApp}
                   onChange={(e) => setPreferences(prev => ({ ...prev, inApp: e.target.checked }))}
-                  className="accent-[#ffe500] h-4 w-4"
+                  className="accent-primary h-4 w-4"
                 />
               </label>
 
@@ -305,14 +305,14 @@ export default function NotificationCenter({ socket, onNavigate }: NotificationC
                   type="checkbox"
                   checked={preferences.email}
                   onChange={(e) => setPreferences(prev => ({ ...prev, email: e.target.checked }))}
-                  className="accent-[#ffe500] h-4 w-4"
+                  className="accent-primary h-4 w-4"
                 />
               </label>
 
               <button
                 type="submit"
                 disabled={savingPrefs}
-                className="mt-2 bg-[#ffe500] text-black font-extrabold py-2 px-4 border-2 border-black shadow-[2px_2px_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 transition uppercase text-xs"
+                className="mt-2 bg-primary text-black font-extrabold py-2 px-4 border-2 border-black shadow-[2px_2px_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 transition uppercase text-xs"
               >
                 {savingPrefs ? 'Saving...' : 'Save Preferences'}
               </button>

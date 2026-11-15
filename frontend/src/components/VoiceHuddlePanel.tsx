@@ -43,8 +43,8 @@ const SPEAKING_THRESHOLD = 14;
 
 function tileClass(isSpeaking: boolean): string {
   return [
-    'relative bg-[#16161d] border-2 min-h-[140px] overflow-hidden shadow-[3px_3px_0px_0px_#000]',
-    isSpeaking ? 'border-[#b8ff3c] ring-2 ring-[#b8ff3c]' : 'border-black',
+    'relative bg-surface border-2 min-h-[140px] overflow-hidden shadow-[3px_3px_0px_0px_#000]',
+    isSpeaking ? 'border-success ring-2 ring-success' : 'border-black',
   ].join(' ');
 }
 
@@ -504,9 +504,9 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
   const showEmptyState = !inHuddle && others.length === 0;
 
   return (
-    <div className="flex flex-col h-full bg-[#0b0b0f] text-[#f5f1e6] font-mono p-4 gap-4">
+    <div className="flex flex-col h-full bg-paper text-ink font-mono p-4 gap-4">
       {/* Top Banner & Room Info */}
-      <div className="bg-[#16161d] border-2 border-black p-4 shadow-[4px_4px_0px_0px_#000] flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-surface border-2 border-black p-4 shadow-[4px_4px_0px_0px_#000] flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 bg-emerald-400 border border-black animate-pulse"></span>
@@ -519,7 +519,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
       </div>
 
       {notice && (
-        <div className="border-2 border-[#ffe500] bg-[#ffe500]/10 text-[#ffe500] text-xs font-bold px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
+        <div className="border-2 border-primary bg-primary/10 text-primary text-xs font-bold px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
           {notice}
         </div>
       )}
@@ -548,7 +548,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
                   />
                   {cameraOff && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-14 h-14 border-2 border-black bg-[#ffe500] text-black font-extrabold text-xl flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                      <div className="w-14 h-14 border-2 border-black bg-primary text-black font-extrabold text-xl flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
                         {(user?.name || 'You').charAt(0).toUpperCase()}
                       </div>
                     </div>
@@ -584,7 +584,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
                   {member.videoOff && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div
-                        style={{ backgroundColor: member.color || '#ffe500' }}
+                        style={{ backgroundColor: member.color || 'var(--primary)' }}
                         className="w-14 h-14 border-2 border-black text-black font-extrabold text-xl flex items-center justify-center shadow-[3px_3px_0px_0px_#000]"
                       >
                         {member.name.charAt(0)}
@@ -626,7 +626,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
                 <button
                   onClick={toggleMute}
                   className={`p-3 border-2 border-black font-bold transition shadow-[2px_2px_0px_0px_#000] ${
-                    muted ? 'bg-rose-500 text-black' : 'bg-[#ffe500] text-black'
+                    muted ? 'bg-rose-500 text-black' : 'bg-primary text-black'
                   }`}
                   title={muted ? 'Unmute Mic' : 'Mute Mic'}
                 >
@@ -636,7 +636,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
                 <button
                   onClick={toggleCamera}
                   className={`p-3 border-2 border-black font-bold transition shadow-[2px_2px_0px_0px_#000] ${
-                    cameraOff ? 'bg-slate-800 text-slate-300' : 'bg-[#ff4d8d] text-black'
+                    cameraOff ? 'bg-slate-800 text-slate-300' : 'bg-primary text-black'
                   }`}
                   title={cameraOff ? 'Turn Camera On' : 'Turn Camera Off'}
                 >
@@ -648,7 +648,7 @@ export default function VoiceHuddlePanel({ socket, teamId, teamName, user }: Voi
             {!inHuddle ? (
               <button
                 onClick={handleJoinHuddle}
-                className="px-5 py-3 bg-[#b8ff3c] text-black font-bold border-2 border-black text-xs hover:bg-[#ffe500] transition flex items-center gap-2 shadow-[3px_3px_0px_0px_#000]"
+                className="px-5 py-3 bg-success text-black font-bold border-2 border-black text-xs hover:bg-primary transition flex items-center gap-2 shadow-[3px_3px_0px_0px_#000]"
               >
                 <PhoneCall className="h-4 w-4" />
                 Join Huddle

@@ -303,7 +303,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
     return parts.map((part, idx) => {
       if (part.startsWith('@')) {
         return (
-          <span key={idx} className="bg-[#ffe500] text-black font-extrabold px-1 border border-black text-[11px] inline-block my-0.5">
+          <span key={idx} className="bg-primary text-black font-extrabold px-1 border border-black text-[11px] inline-block my-0.5">
             {part}
           </span>
         );
@@ -313,7 +313,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
         const hParts = part.split(hRegex);
         return hParts.map((hPart, hIdx) => 
           hPart.toLowerCase() === highlight.toLowerCase() ? (
-            <mark key={hIdx} className="bg-[#ff4d8d] text-white font-bold px-0.5">{hPart}</mark>
+            <mark key={hIdx} className="bg-primary text-white font-bold px-0.5">{hPart}</mark>
           ) : (
             hPart
           )
@@ -429,7 +429,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
   const getThreadReplies = (parentId: string) => messages.filter(m => m.parentId === parentId);
 
   return (
-    <div className="flex h-[80vh] border-3 border-[#f5f1e6] bg-[#16161d] overflow-hidden">
+    <div className="flex h-[80vh] border-3 border-ink bg-surface overflow-hidden">
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Channel Navigation & Search Header */}
@@ -442,7 +442,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                 onClick={() => setActiveChannel(ch as any)}
                 className={`text-xs px-3 py-1 font-bold uppercase tracking-wider transition ${
                   activeChannel === ch
-                    ? 'bg-[#ffe500] text-black border-2 border-black shadow-[2px_2px_0_#000]'
+                    ? 'bg-primary text-black border-2 border-black shadow-[2px_2px_0_#000]'
                     : 'text-slate-400 border-2 border-transparent hover:text-white'
                 }`}
               >
@@ -458,14 +458,14 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search chat..."
-              className="bg-black text-[#f5f1e6] border-2 border-[#f5f1e6] text-xs py-1 px-3 w-48 font-mono focus:outline-none focus:border-[#ffe500]"
+              className="bg-black text-ink border-2 border-ink text-xs py-1 px-3 w-48 font-mono focus:outline-none focus:border-primary"
             />
           </div>
         </div>
 
         {/* Pinned Messages Banner */}
         {pinnedMessages.length > 0 && (
-          <div className="bg-[#ffe500] text-black px-4 py-1.5 border-b-2 border-black flex items-center justify-between text-xs font-bold shrink-0">
+          <div className="bg-primary text-black px-4 py-1.5 border-b-2 border-black flex items-center justify-between text-xs font-bold shrink-0">
             <div className="flex items-center gap-2 truncate">
               <span>📌 Pinned:</span>
               <span className="truncate">{pinnedMessages[pinnedMessages.length - 1].author}: "{pinnedMessages[pinnedMessages.length - 1].text}"</span>
@@ -475,7 +475,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
         )}
 
         {/* Messages Feed */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#0b0b0f]">
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-paper">
           {filteredMessages.length === 0 ? (
             <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
               {searching ? 'Searching all messages…' : searchQuery ? 'No messages match search query.' : 'No conversations in this channel yet. Send a message to start!'}
@@ -485,7 +485,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
               if (msg.system) {
                 return (
                   <div key={msg.id} className="flex items-center justify-center gap-1.5 py-1 px-3 bg-black border border-slate-800 text-slate-400 text-[10px] font-mono self-center">
-                    <AlertCircle className="h-3 w-3 text-[#ffe500]" />
+                    <AlertCircle className="h-3 w-3 text-primary" />
                     {msg.text}
                   </div>
                 );
@@ -501,7 +501,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                   key={msg.id} 
                   id={`msg-${msg.id}`}
                   className={`flex flex-col max-w-[85%] group ${isMe ? 'self-end items-end' : 'self-start items-start'} ${
-                    highlightId === msg.id ? 'ring-2 ring-[#ff8a5b] ring-offset-2 ring-offset-[#0b0b0f]' : ''
+                    highlightId === msg.id ? 'ring-2 ring-primary ring-offset-2 ring-offset-[var(--paper)]' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold mb-0.5 px-1 font-mono">
@@ -510,7 +510,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                     <div className="opacity-0 group-hover:opacity-100 transition flex items-center gap-1.5 ml-2">
                       <button 
                         onClick={() => togglePin(msg)}
-                        className="hover:text-[#ffe500]"
+                        className="hover:text-primary"
                         title={isPinned ? 'Unpin message' : 'Pin message'}
                       >
                         {isPinned ? '📌' : '📌'}
@@ -519,14 +519,14 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                         <>
                           <button 
                             onClick={() => { setEditingMessageId(msg.id); setEditingText(msg.text); }}
-                            className="hover:text-[#ffe500]"
+                            className="hover:text-primary"
                             title="Edit message"
                           >
                             ✏️
                           </button>
                           <button 
                             onClick={() => handleDelete(msg.id)}
-                            className="hover:text-[#ff4d8d]"
+                            className="hover:text-primary"
                             title="Delete message"
                           >
                             🗑️
@@ -538,8 +538,8 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                   
                   <div className={`p-3 text-xs relative ${
                     isMe 
-                      ? 'bg-[#ffe500] text-black border-2 border-black font-semibold shadow-[3px_3px_0_#000]' 
-                      : 'bg-[#16161d] text-[#f5f1e6] border-2 border-[#f5f1e6] shadow-[3px_3px_0_#ff4d8d]'
+                      ? 'bg-primary text-black border-2 border-black font-semibold shadow-[3px_3px_0_#000]' 
+                      : 'bg-surface text-ink border-2 border-ink shadow-[3px_3px_0_var(--primary)]'
                   }`}>
                     {editingMessageId === msg.id ? (
                       <div className="flex flex-col gap-2">
@@ -552,7 +552,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => handleSaveEdit(msg.id)}
-                            className="bg-black text-[#ffe500] px-2 py-0.5 text-[10px] font-bold border border-[#ffe500]"
+                            className="bg-black text-primary px-2 py-0.5 text-[10px] font-bold border border-primary"
                           >
                             Save
                           </button>
@@ -580,7 +580,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                               </div>
                             ) : (
                               <div className="flex items-center gap-3 p-2 bg-slate-900 border border-slate-800">
-                                <FileText className="h-6 w-6 text-[#ffe500]" />
+                                <FileText className="h-6 w-6 text-primary" />
                                 <div className="min-w-0">
                                   <div className="text-[11px] font-bold text-white truncate">{msg.attachment.originalName}</div>
                                   <div className="text-[9px] text-slate-400">{formatFileSize(msg.attachment.size)}</div>
@@ -602,7 +602,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
                                   onClick={() => toggleReaction(msg.id, emoji)}
                                   className={`px-1.5 py-0.5 text-[10px] font-mono font-bold transition flex items-center gap-1 ${
                                     hasReacted
-                                      ? 'bg-black text-[#ffe500] border border-[#ffe500]'
+                                      ? 'bg-black text-primary border border-primary'
                                       : 'bg-black/30 text-slate-300 hover:bg-black/60'
                                   }`}
                                 >
@@ -615,7 +615,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
 
                           <button
                             onClick={() => setActiveThreadMessage(msg)}
-                            className="text-[10px] font-mono font-bold px-2 py-0.5 bg-black text-[#ffe500] border border-black hover:bg-[#ffe500] hover:text-black transition shrink-0"
+                            className="text-[10px] font-mono font-bold px-2 py-0.5 bg-black text-primary border border-black hover:bg-primary hover:text-black transition shrink-0"
                           >
                             💬 {replies.length > 0 ? `${replies.length} replies` : 'Reply in Thread'}
                           </button>
@@ -633,7 +633,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
         {/* Upload File Preview Bar */}
         {file && (
           <div className="px-4 py-2 border-t border-slate-900 bg-slate-950 flex items-center justify-between text-[11px]">
-            <div className="flex items-center gap-2 text-[#ffe500] font-semibold font-mono">
+            <div className="flex items-center gap-2 text-primary font-semibold font-mono">
               <Paperclip className="h-4 w-4" />
               <span>{file.name}</span>
               <span className="text-[9px] text-slate-400">({formatFileSize(file.size)})</span>
@@ -650,13 +650,13 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
 
         {/* Mentions Autocomplete Popover */}
         {showMentionMenu && matchingMembers.length > 0 && (
-          <div className="mx-3 mb-1 p-2 bg-black border-2 border-[#ffe500] text-white flex flex-col gap-1 z-20">
+          <div className="mx-3 mb-1 p-2 bg-black border-2 border-primary text-white flex flex-col gap-1 z-20">
             <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest px-1">Mention Team Member:</div>
             {matchingMembers.map(m => (
               <button
                 key={m.id}
                 onClick={() => insertMention(m.name)}
-                className="text-left text-xs font-mono p-1 hover:bg-[#ffe500] hover:text-black font-bold border border-transparent hover:border-black transition"
+                className="text-left text-xs font-mono p-1 hover:bg-primary hover:text-black font-bold border border-transparent hover:border-black transition"
               >
                 @{m.name} ({m.role || 'Member'})
               </button>
@@ -677,7 +677,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
             type="button" 
             onClick={triggerFileInput}
             disabled={uploading}
-            className="p-2.5 bg-[#16161d] text-white border-2 border-slate-700 hover:border-[#ffe500] transition shrink-0"
+            className="p-2.5 bg-surface text-white border-2 border-slate-700 hover:border-primary transition shrink-0"
             title="Attach File"
           >
             <Paperclip className="h-4 w-4" />
@@ -688,13 +688,13 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
             value={text}
             onChange={(e) => handleTextChange(e.target.value)}
             placeholder={`Message #${activeChannel} (type @ to mention)...`}
-            className="flex-1 bg-[#16161d] text-[#f5f1e6] border-2 border-[#f5f1e6] p-2 text-xs font-mono focus:outline-none focus:border-[#ffe500]"
+            className="flex-1 bg-surface text-ink border-2 border-ink p-2 text-xs font-mono focus:outline-none focus:border-primary"
           />
 
           <button 
             type="submit" 
             disabled={uploading || (!text.trim() && !file)}
-            className="bg-[#ffe500] text-black font-extrabold text-xs px-4 py-2.5 border-2 border-black shadow-[2px_2px_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 transition shrink-0 disabled:opacity-50"
+            className="bg-primary text-black font-extrabold text-xs px-4 py-2.5 border-2 border-black shadow-[2px_2px_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 transition shrink-0 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
           </button>
@@ -703,9 +703,9 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
 
       {/* Thread Drawer Side Panel */}
       {activeThreadMessage && (
-        <div className="w-80 border-l-3 border-[#f5f1e6] bg-[#0b0b0f] flex flex-col shrink-0">
+        <div className="w-80 border-l-3 border-ink bg-paper flex flex-col shrink-0">
           <div className="p-3 bg-black border-b-2 border-slate-800 flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-[#ffe500] font-mono">Thread Replies</h4>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-primary font-mono">Thread Replies</h4>
             <button 
               onClick={() => setActiveThreadMessage(null)}
               className="text-slate-400 hover:text-white font-bold text-xs"
@@ -715,8 +715,8 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
           </div>
 
           {/* Original Parent Message */}
-          <div className="p-3 border-b-2 border-slate-800 bg-[#16161d] text-xs text-[#f5f1e6] font-mono">
-            <div className="text-[10px] font-bold text-[#ffe500] mb-1">
+          <div className="p-3 border-b-2 border-slate-800 bg-surface text-xs text-ink font-mono">
+            <div className="text-[10px] font-bold text-primary mb-1">
               {activeThreadMessage.user?.name} ({activeThreadMessage.user?.role})
             </div>
             <p className="whitespace-pre-wrap">{activeThreadMessage.text}</p>
@@ -730,7 +730,7 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
               </div>
             ) : (
               getThreadReplies(activeThreadMessage.id).map(reply => (
-                <div key={reply.id} className="bg-[#16161d] border border-slate-800 p-2.5 text-xs text-[#f5f1e6] font-mono">
+                <div key={reply.id} className="bg-surface border border-slate-800 p-2.5 text-xs text-ink font-mono">
                   <div className="text-[10px] font-bold text-slate-400 mb-1">
                     {reply.user?.name} ({reply.user?.role})
                   </div>
@@ -747,12 +747,12 @@ export default function ChatWindow({ socket, teamId, userId, userName, initialMe
               value={threadText}
               onChange={(e) => setThreadText(e.target.value)}
               placeholder="Reply to thread..."
-              className="flex-1 bg-[#16161d] text-[#f5f1e6] border border-slate-700 text-xs p-2 font-mono focus:outline-none focus:border-[#ffe500]"
+              className="flex-1 bg-surface text-ink border border-slate-700 text-xs p-2 font-mono focus:outline-none focus:border-primary"
             />
             <button
               type="submit"
               disabled={!threadText.trim()}
-              className="bg-[#ffe500] text-black font-bold text-xs px-3 py-2 border border-black disabled:opacity-50"
+              className="bg-primary text-black font-bold text-xs px-3 py-2 border border-black disabled:opacity-50"
             >
               Reply
             </button>

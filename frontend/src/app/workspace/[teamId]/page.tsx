@@ -319,7 +319,7 @@ export default function WorkspacePage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0b0b0f] text-white">
+      <div className="flex-1 flex flex-col items-center justify-center bg-paper text-white">
         <div className="w-12 h-12 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 animate-spin mb-4" />
         <h3 className="text-sm font-semibold tracking-wider uppercase text-indigo-400">Loading HackHub Workspace...</h3>
       </div>
@@ -333,7 +333,7 @@ export default function WorkspacePage() {
       error.toLowerCase().includes('expired') ||
       /HTTP (401|403)/.test(error);
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0b0b0f] text-white p-4">
+      <div className="flex-1 flex flex-col items-center justify-center bg-paper text-white p-4">
         <div className="glass-panel p-6 rounded-2xl border-rose-500/30 text-center max-w-md">
           <h3 className="text-xl font-bold text-rose-400 mb-2">Workspace Access Error</h3>
           <p className="text-slate-400 text-sm mb-6">{error}</p>
@@ -353,12 +353,12 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden h-screen bg-[#0b0b0f] relative">
+    <div className="flex-1 flex overflow-hidden h-screen bg-paper relative">
       {/* If the socket is down, presence, chat and live edits quietly stop
           syncing. Say so, and name the usual cause, rather than leaving empty
           panels with nothing to explain them. */}
       {!socketConnected && (
-        <div className="fixed top-0 left-0 right-0 z-[60] bg-[#ffe500] text-black border-b-4 border-black text-[11px] font-bold px-4 py-2 text-center font-mono">
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-primary text-black border-b-4 border-black text-[11px] font-bold px-4 py-2 text-center font-mono">
           Realtime connection lost &mdash; presence, chat and live edits are not syncing. Check the backend is running and that this page&apos;s origin is listed in the backend&apos;s CORS_ORIGINS.
         </div>
       )}
@@ -379,7 +379,7 @@ export default function WorkspacePage() {
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1 px-1">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#ffe500] shadow-[3px_3px_0_#000]">
+                <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-primary shadow-[3px_3px_0_#000]">
                   <Layers className="h-5 w-5 text-black" />
                 </div>
                 <span className="font-extrabold text-xl tracking-tight text-white">
@@ -505,35 +505,35 @@ export default function WorkspacePage() {
               onClick={() => setActiveTab('judge')}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-r-xl text-xs font-bold transition text-left border-l-2.5 ${
                 activeTab === 'judge'
-                  ? 'bg-[#ffe500] text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
+                  ? 'bg-primary text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
                   : 'border-l-transparent text-slate-400 hover:bg-slate-900/30 hover:text-slate-200'
               }`}
             >
-              <Award className="h-4.5 w-4.5 text-[#ffe500]" /> Judge Mode
+              <Award className="h-4.5 w-4.5 text-primary" /> Judge Mode
             </button>
 
             <button
               onClick={() => setActiveTab('activity')}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-r-xl text-xs font-bold transition text-left border-l-2.5 ${
                 activeTab === 'activity'
-                  ? 'bg-[#ff8a5b] text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
+                  ? 'bg-primary text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
                   : 'border-l-transparent text-slate-400 hover:bg-slate-900/30 hover:text-slate-200'
               }`}
             >
-              <Activity className="h-4.5 w-4.5 text-[#ff8a5b]" /> Activity
+              <Activity className="h-4.5 w-4.5 text-primary" /> Activity
             </button>
 
             <button
               onClick={() => setActiveTab('huddle')}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-r-xl text-xs font-bold transition text-left border-l-2.5 relative ${
                 activeTab === 'huddle'
-                  ? 'bg-[#b8ff3c] text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
+                  ? 'bg-success text-black border-l-black font-extrabold shadow-[2px_2px_0_#000]'
                   : 'border-l-transparent text-slate-400 hover:bg-slate-900/30 hover:text-slate-200'
               }`}
             >
-              <Headphones className="h-4.5 w-4.5 text-[#b8ff3c]" /> Voice Huddle
+              <Headphones className="h-4.5 w-4.5 text-success" /> Voice Huddle
               {huddleCount > 0 && (
-                <span className="ml-auto px-1.5 py-0.5 bg-black text-[#b8ff3c] border border-[#b8ff3c] text-[9px] font-mono font-bold">
+                <span className="ml-auto px-1.5 py-0.5 bg-black text-success border border-success text-[9px] font-mono font-bold">
                   {huddleCount} Active
                 </span>
               )}
@@ -565,7 +565,7 @@ export default function WorkspacePage() {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-[#0b0b0f] p-6 gap-6 relative">
+      <main className="flex-1 flex flex-col overflow-hidden bg-paper p-6 gap-6 relative">
         {/* Workspace Top Header */}
         <header className="flex items-center justify-between border-b border-slate-900/40 pb-4">
           <div className="flex items-center gap-3">
@@ -585,7 +585,7 @@ export default function WorkspacePage() {
                     <div 
                       key={m.socketId}
                       title={`${m.name} (${m.role}) — Online Now`}
-                      style={{ backgroundColor: m.color || '#ffe500' }}
+                      style={{ backgroundColor: m.color || 'var(--primary)' }}
                       className="w-6 h-6 border-2 border-black text-[10px] font-mono font-bold flex items-center justify-center text-black relative shadow-[2px_2px_0px_#000]"
                     >
                       {m.name.charAt(0)}
@@ -606,7 +606,7 @@ export default function WorkspacePage() {
               className="glass-button-secondary text-xs py-1.5! px-3! flex items-center gap-1.5 font-mono"
               title="Command Palette (Cmd / Ctrl + K)"
             >
-              <Search className="h-3.5 w-3.5 text-[#ffe500]" />
+              <Search className="h-3.5 w-3.5 text-primary" />
               <span className="hidden sm:inline">Search / Cmd</span>
               <kbd className="px-1.5 py-0.5 bg-black border border-slate-700 text-[9px] text-slate-300">⌘K</kbd>
             </button>

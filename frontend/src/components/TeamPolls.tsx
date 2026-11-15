@@ -106,14 +106,14 @@ export default function TeamPolls({ teamId, userId = '' }: TeamPollsProps) {
   };
 
   return (
-    <div className="glass-panel p-5 border-[#f5f1e6] border-3 shadow-[6px_6px_0_#ffe500] bg-[#16161d] flex flex-col gap-4 font-sans">
+    <div className="glass-panel p-5 border-ink border-3 shadow-[6px_6px_0_var(--primary)] bg-surface flex flex-col gap-4 font-sans">
       <div className="flex items-center justify-between border-b-2 border-slate-800 pb-3">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-black border-2 border-[#ffe500] text-[#ffe500]">
+          <div className="p-2 bg-black border-2 border-primary text-primary">
             <Vote className="h-4.5 w-4.5" />
           </div>
           <div>
-            <h3 className="font-extrabold text-sm text-[#f5f1e6] uppercase tracking-wider">Team Sprint Polls</h3>
+            <h3 className="font-extrabold text-sm text-ink uppercase tracking-wider">Team Sprint Polls</h3>
             <p className="text-[10px] text-slate-400">Vote on team architecture and sprint decisions</p>
           </div>
         </div>
@@ -139,7 +139,7 @@ export default function TeamPolls({ teamId, userId = '' }: TeamPollsProps) {
             return (
               <div key={poll.id} className="bg-black border-2 border-slate-800 p-4 flex flex-col gap-3 text-xs font-mono">
                 <div className="flex items-center justify-between border-b border-slate-850 pb-2">
-                  <span className="font-bold text-[#f5f1e6] text-sm">{poll.question}</span>
+                  <span className="font-bold text-ink text-sm">{poll.question}</span>
                   <span className="text-[10px] text-slate-400 shrink-0">{totalVotes} votes</span>
                 </div>
 
@@ -154,18 +154,18 @@ export default function TeamPolls({ teamId, userId = '' }: TeamPollsProps) {
                         className={`w-full text-left p-2.5 border-2 transition relative overflow-hidden flex items-center justify-between ${
                           hasVoted
                             ? 'border-slate-800 cursor-default bg-slate-950'
-                            : 'border-slate-700 hover:border-[#ffe500] bg-slate-900'
+                            : 'border-slate-700 hover:border-primary bg-slate-900'
                         }`}
                       >
                         {/* Progress Bar Background */}
                         <div
-                          className="absolute inset-y-0 left-0 bg-[#ffe500]/20 transition-all duration-500"
+                          className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-500"
                           style={{ width: `${pct}%` }}
                         />
 
                         <span className="relative z-10 font-bold text-slate-200">{opt.text}</span>
                         <div className="relative z-10 flex items-center gap-2 font-mono font-bold text-[11px]">
-                          <span className="text-[#ffe500]">{pct}%</span>
+                          <span className="text-primary">{pct}%</span>
                           <span className="text-slate-400">({opt.votes})</span>
                         </div>
                       </button>
@@ -186,9 +186,9 @@ export default function TeamPolls({ teamId, userId = '' }: TeamPollsProps) {
       {/* Modal: Create Poll */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#16161d] border-3 border-[#f5f1e6] p-6 max-w-md w-full shadow-[8px_8px_0_#ffe500] flex flex-col gap-4">
+          <div className="bg-surface border-3 border-ink p-6 max-w-md w-full shadow-[8px_8px_0_var(--primary)] flex flex-col gap-4">
             <div className="flex items-center justify-between border-b-2 border-slate-800 pb-2">
-              <h4 className="font-extrabold text-sm text-[#f5f1e6] uppercase">Create Team Poll</h4>
+              <h4 className="font-extrabold text-sm text-ink uppercase">Create Team Poll</h4>
               <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white">
                 <X className="h-4 w-4" />
               </button>

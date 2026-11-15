@@ -692,7 +692,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
           ref={containerRef}
           onMouseMove={handleMouseMove}
           onClick={handleViewportClick}
-          className={`flex-1 glass-panel border-[#f5f1e6] bg-[#16161d] relative overflow-hidden flex items-center justify-center p-1 group min-h-[300px] ${
+          className={`flex-1 glass-panel border-ink bg-surface relative overflow-hidden flex items-center justify-center p-1 group min-h-[300px] ${
             isControlling ? 'cursor-crosshair' : ''
           }`}
         >
@@ -708,7 +708,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
                   playsInline
                   muted
                   className={`w-full h-full object-contain ${
-                    presenter.shareType === 'half' ? 'scale-x-90 scale-y-90 border-2 border-[#ffe500]' : ''
+                    presenter.shareType === 'half' ? 'scale-x-90 scale-y-90 border-2 border-primary' : ''
                   }`}
                 />
               ) : remoteStream ? (
@@ -717,7 +717,7 @@ export default function ScreenSharePanel({ socket, teamId, user }: ScreenSharePa
                   autoPlay
                   playsInline
                   className={`w-full h-full object-contain ${
-                    presenter.shareType === 'half' ? 'scale-x-90 scale-y-90 border-2 border-[#ffe500]' : ''
+                    presenter.shareType === 'half' ? 'scale-x-90 scale-y-90 border-2 border-primary' : ''
                   }`}
                 />
               ) : (

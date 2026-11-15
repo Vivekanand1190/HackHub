@@ -513,7 +513,7 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
               className="glass-button-secondary text-xs py-1.5! px-3! flex items-center gap-1.5 font-mono"
               title="Save version snapshot"
             >
-              <Save className="h-3.5 w-3.5 text-[#ffe500]" />
+              <Save className="h-3.5 w-3.5 text-primary" />
               <span className="hidden sm:inline">{savingSnapshot ? 'Snapshotting...' : 'Snapshot'}</span>
             </button>
 
@@ -522,8 +522,8 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
               disabled={!selectedSnippet}
               className={`text-xs py-1.5! px-3! flex items-center gap-1.5 font-mono border-2 transition ${
                 showHistory 
-                  ? 'bg-[#ffe500] text-black border-black font-bold' 
-                  : 'bg-black text-[#f5f1e6] border-[#f5f1e6]'
+                  ? 'bg-primary text-black border-black font-bold' 
+                  : 'bg-black text-ink border-ink'
               }`}
               title="View Version History"
             >
@@ -543,9 +543,9 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
 
         {/* Version History Drawer Panel */}
         {showHistory && (
-          <div className="bg-[#16161d] border-3 border-[#f5f1e6] p-3 shadow-[4px_4px_0_#ffe500] flex flex-col gap-2 font-mono text-xs">
+          <div className="bg-surface border-3 border-ink p-3 shadow-[4px_4px_0_var(--primary)] flex flex-col gap-2 font-mono text-xs">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className="font-bold text-[#ffe500] uppercase">Version History Revisions</span>
+              <span className="font-bold text-primary uppercase">Version History Revisions</span>
               <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-white">
                 <X className="h-4 w-4" />
               </button>
@@ -573,7 +573,7 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
                       </button>
                       <button
                         onClick={() => handleRestoreRevision(rev)}
-                        className="px-2.5 py-1 bg-[#4d7cff] hover:bg-[#3a5fd9] text-black font-bold uppercase text-[9px] border border-black flex items-center gap-1"
+                        className="px-2.5 py-1 bg-link hover:bg-[#3a5fd9] text-black font-bold uppercase text-[9px] border border-black flex items-center gap-1"
                       >
                         <RotateCcw className="h-3 w-3" /> Restore
                       </button>
@@ -589,9 +589,9 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
           const rows: DiffRow[] = diffLines(diffFor.code ?? '', code);
           const stats = diffStats(rows);
           return (
-            <div className="bg-[#16161d] border-3 border-[#f5f1e6] p-3 flex flex-col gap-2 font-mono text-[11px]">
+            <div className="bg-surface border-3 border-ink p-3 flex flex-col gap-2 font-mono text-[11px]">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-bold uppercase text-[#ff8a5b]">
+                <span className="font-bold uppercase text-primary">
                   Diff · {diffFor.commitMessage || 'revision'}
                 </span>
                 <div className="flex items-center gap-2">
@@ -624,7 +624,7 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
               <div className="flex justify-end">
                 <button
                   onClick={() => { setDiffFor(null); handleRestoreRevision(diffFor); }}
-                  className="px-3 py-1.5 bg-[#4d7cff] hover:bg-[#3a5fd9] text-black font-bold uppercase text-[10px] border border-black"
+                  className="px-3 py-1.5 bg-link hover:bg-[#3a5fd9] text-black font-bold uppercase text-[10px] border border-black"
                 >
                   Restore this version
                 </button>
@@ -634,7 +634,7 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
         })()}
 
         {/* Monaco Editor Screen */}
-        <div className="flex-1 glass-panel overflow-hidden min-h-[380px] p-2 bg-[#16161d] relative">
+        <div className="flex-1 glass-panel overflow-hidden min-h-[380px] p-2 bg-surface relative">
           <Editor
             height="100%"
             language={language}
@@ -647,12 +647,12 @@ export default function CodeEditor({ socket, teamId, initialSnippets, userId, co
                 inherit: true,
                 rules: [],
                 colors: {
-                  'editor.background': '#16161d',
-                  'editor.foreground': '#f5f1e6',
-                  'editorCursor.foreground': '#ffe500',
+                  'editor.background': 'var(--surface)',
+                  'editor.foreground': 'var(--ink)',
+                  'editorCursor.foreground': 'var(--primary)',
                   'editor.lineHighlightBackground': '#22222a',
                   'editorLineNumber.foreground': '#777777',
-                  'editorLineNumber.activeForeground': '#ffe500',
+                  'editorLineNumber.activeForeground': 'var(--primary)',
                   'editor.selectionBackground': '#4d7cff44',
                 }
               });
