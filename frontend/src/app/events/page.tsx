@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useToast } from '../components/ui/Toast';
+import { useToast } from '../../components/ui/Toast';
 import Link from 'next/link';
 import { Calendar, Trophy, Users, Plus, Award, Tag, Sparkles, ArrowRight } from 'lucide-react';
 import { API_BASE } from '../../utils/api';
